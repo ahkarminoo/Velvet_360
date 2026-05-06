@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>360° AR Capture</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0C0B10; color: #F5F0E8; font-family: -apple-system, sans-serif; overflow: hidden; height: 100dvh; }
+
+    /* ── Start screen ── */
+    #start-screen {
+      position: fixed; inset: 0; z-index: 200;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 12px; padding: 32px; background: #0C0B10; text-align: center;
+    }
+    #start-screen .emoji { font-size: 56px; margin-bottom: 4px; }
+    #start-screen h1 { font-size: 24px; font-weight: 900; }
+    #start-screen p { font-size: 14px; color: #9B96A8; line-height: 1.6; max-width: 280px; }
+    .btn-gold  { background: #C9A84C; color: #0C0B10; border: none; border-radius: 16px; padding: 16px 32px; font-size: 16px; font-weight: 800; cursor: pointer; margin-top: 8px; }
+    .btn-ghost { background: rgba(255,255,255,.07); border: 1px solid #2E2D3A; color: #9B96A8; border-radius: 12px; padding: 10px 20px; font-size: 13px; cursor: pointer; }
+
+    /* ── Camera ── */
+    #camera-video { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; display: none; }
+    #guide-canvas { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; display: none; }
+    #reticle { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 64px; height: 64px; z-index: 5; display: none; pointer-events: none; }
+
+    /* ── Countdown ring ── */
+    #countdown-svg { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 88px; height: 88px; z-index: 6; display: none; pointer-events: none; }
+
+    /* ── Status banner ── */
+    #status {
+      position: fixed; top: env(safe-area-inset-top, 16px);
+      left: 50%; transform: translateX(-50%);
+      z-index: 20; padding: 7px 18px;
+      background: rgba(12,11,16,.88); backdrop-filter: blur(8px);
+      border: 1px solid #2E2D3A; border-radius: 20px;
+      font-size: 13px; font-weight: 600; white-space: nowrap; display: none;
+    }
+
+    /* ── Gyro retry ── */
+    #gyro-retry-btn {
+      display: none; position: fixed; z-index: 21;
+      top: calc(env(safe-area-inset-top, 16px) + 52px);
+      left: 50%; transform: translateX(-50%);
+      background: rgba(201,168,76,.15); border: 1px solid rgba(201,168,76,.4);
+      color: #C9A84C; border-radius: 12px; padding: 8px 18px;
+      font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap;
+    }
+
+    /* ── Shot dots (Mini map) ── */
+    #shot-dots {
+      position: fixed; top: calc(env(safe-area-inset-top, 16px) + 44px);
+      left: 50%; transform: translateX(-50%);
+      z-index: 20; display: none;
+      flex-wrap: wrap; justify-content: center; gap: 5px; max-width: 300px;
+    }
+    .sdot { width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,.2); transition: background .3s; }
+    .sdot.active   { background: #C9A84C; }
+    .sdot.captured { background: rgba(34,197,94,.4); }   /* captured, uploading */
+    .sdot.done     { background: #22c55e; }               /* uploaded to server */
+    .sdot.failed   { background: #ef4444; }               /* upload failed */
+
+    /* ── Bottom bar ── */
+    #bottom-bar {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 20; display: none;
+      padding: 12px 20px calc(env(safe-area-inset-bottom, 16px) + 12px);
+      background: rgba(12,11,16,.88); backdrop-filter: blur(12px);
+      border-top: 1px solid #1E1D2A; flex-direction: column; gap: 8px;
+    }
+    #upload-bar { display: flex; align-items: center; gap: 8px; }
+    #upload-track { flex: 1; height: 3px; background: #1E1D2A; border-radius: 2px; overflow: hidden; }
+    #upload-fill  { height: 100%; background: #22c55e; width: 0%; transition: width .3s; }
+    #upload-label { font-size: 11px; color: #9B96A8; white-space: nowrap; }
+    .bar-row { display: flex; gap: 10px; align-items: center; }
+    #shot-count { font-size: 13px; color: #9B96A8; white-space: nowrap; }
+    #capture-btn {
+      flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 14px; border: none; border-radius: 16px;
+      background: #fff; color: #0C0B10; font-size: 15px; font-weight: 800; cursor: pointer;
+    }
+    #stitch-btn {
+      flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 14px; border: none; border-radius: 16px;
+      background: #C9A84C; color: #0C0B10; font-size: 15px; font-weight: 800; cursor: pointer;
+    }
+    #stitch-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+    /* ── Loading ── */
+    #loading {
+      position: fixed; inset: 0; z-index: 100;
+      background: rgba(12,11,16,.94); backdrop-filter: blur(6px);
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center; gap: 12px;
+    }
+    .spinner { width: 48px; height: 48px; border: 3px solid #2E2D3A; border-top-color: #C9A84C; border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading-stage { font-size: 15px; font-weight: 700; }
+    #loading-hint  { font-size: 12px; color: #9B96A8; }
+
+    /* ── Result ── */
+    #result-screen { position: fixed; inset: 0; z-index: 90; display: none; flex-direction: column; background: #0C0B10; }
+    #result-toolbar {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 16px calc(12px + env(safe-area-inset-top, 0px));
+      background: rgba(12,11,16,.9); backdrop-filter: blur(8px);
+      border-bottom: 1px solid #1E1D2A; flex-shrink: 0;
+    }
+    #result-toolbar h2 { font-size: 15px; font-weight: 800; }
+    #back-btn { background: rgba(255,255,255,.08); border: 1px solid #2E2D3A; color: #F5F0E8; border-radius: 10px; padding: 8px 14px; font-size: 13px; cursor: pointer; flex-shrink: 0; }
+    #save-btn { margin-left: auto; flex-shrink: 0; background: #C9A84C; color: #0C0B10; border: none; border-radius: 10px; padding: 9px 18px; font-size: 13px; font-weight: 800; cursor: pointer; text-decoration: none; display: inline-block; }
+
+    /* Heading strip */
+    #heading-strip { display: none; flex-shrink: 0; flex-direction: row; align-items: center; gap: 12px; padding: 10px 16px 12px; background: rgba(12,11,16,.95); border-bottom: 1px solid #1E1D2A; }
+    .heading-needle { transform-origin: 40px 40px; transition: transform .18s ease; }
+    #heading-controls { flex: 1; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+    #heading-lbl { font-size: 10px; font-weight: 700; color: #9B96A8; text-transform: uppercase; letter-spacing: .08em; }
+    #heading-range { width: 100%; accent-color: #C9A84C; cursor: pointer; }
+    #heading-val { font-size: 12px; font-weight: 700; }
+    .heading-row { display: flex; gap: 6px; align-items: center; }
+    .btn-sm      { background: rgba(255,255,255,.08); border: 1px solid #2E2D3A; color: #F5F0E8; border-radius: 8px; padding: 5px 9px; font-size: 11px; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+
+    /* Three.js result canvas container */
+    #three-result-container { flex: 1; position: relative; background: #000; overflow: hidden; }
+
+    .flash { position: fixed; inset: 0; z-index: 50; background: #fff; opacity: .7; pointer-events: none; animation: flash .15s ease forwards; }
+    @keyframes flash { to { opacity: 0; } }
+  </style>
+  
+  <!-- Three.js + OrbitControls -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+<!-- Start screen -->
+<div id="start-screen">
+  <div class="emoji">📷</div>
+  <h1>360° AR Capture</h1>
+  <p>Aim your phone at the floating 3D rings. The camera will automatically capture when aligned.</p>
+  <button class="btn-gold" id="start-btn">Start Capture</button>
+  <button class="btn-ghost" id="skip-btn">No gyroscope? Tap to capture manually</button>
+</div>
+
+<video id="camera-video" autoplay playsinline muted></video>
+<canvas id="guide-canvas"></canvas>
+
+<div id="reticle">
+  <svg viewBox="0 0 64 64" fill="none">
+    <circle cx="32" cy="32" r="30" stroke="rgba(255,255,255,.55)" stroke-width="1.5"/>
+    <line x1="32" y1="4"  x2="32" y2="16" stroke="white" stroke-width="2" stroke-linecap="round"/>
+    <line x1="32" y1="48" x2="32" y2="60" stroke="white" stroke-width="2" stroke-linecap="round"/>
+    <line x1="4"  y1="32" x2="16" y2="32" stroke="white" stroke-width="2" stroke-linecap="round"/>
+    <line x1="48" y1="32" x2="60" y2="32" stroke="white" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="32" cy="32" r="2.5" fill="white"/>
+  </svg>
+</div>
+
+<!-- Guide arrow — points toward nearest uncaptured dot -->
+<div id="guide-arrow" style="display:none;position:fixed;top:50%;left:50%;z-index:7;pointer-events:none;width:52px;height:52px;transform-origin:center;">
+  <svg viewBox="0 0 52 52" fill="none">
+    <circle cx="26" cy="26" r="24" stroke="rgba(201,168,76,.2)" stroke-width="1.5"/>
+    <polygon points="26,4 36,22 30,22 30,46 22,46 22,22 16,22" fill="#C9A84C" opacity="0.9"/>
+  </svg>
+</div>
+
+<!-- Nearest dot label -->
+<div id="dot-hint" style="display:none;position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 160px);left:50%;transform:translateX(-50%);z-index:20;background:rgba(12,11,16,.8);border:1px solid #2E2D3A;border-radius:10px;padding:5px 14px;font-size:12px;color:#C9A84C;font-weight:700;white-space:nowrap;pointer-events:none;"></div>
+
+<svg id="countdown-svg" viewBox="0 0 88 88">
+  <circle cx="44" cy="44" r="40" fill="none" stroke="#C9A84C" stroke-width="3.5"
+    stroke-dasharray="251.3" stroke-dashoffset="251.3" id="countdown-circle"
+    transform="rotate(-90 44 44)" style="transition:stroke-dashoffset linear"/>
+</svg>
+
+<div id="status"></div>
+<button id="gyro-retry-btn">Enable gyroscope ↺</button>
+<div id="shot-dots"></div>
+
+<div id="bottom-bar">
+  <div id="upload-bar">
+    <div id="upload-track"><div id="upload-fill"></div></div>
+    <span id="upload-label">0 uploaded</span>
+  </div>
+  <div class="bar-row">
+    <span id="shot-count">0 shots</span>
+    <button id="capture-btn">📷 Capture</button>
+    <button id="stitch-btn" disabled>Stitch (Hugin) →</button>
+  </div>
+</div>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <p id="loading-stage">Hugin is stitching…</p>
+  <p id="loading-hint">Please wait. This takes about 45 seconds.</p>
+</div>
+
+<div id="result-screen">
+  <div id="result-toolbar">
+    <button id="back-btn">← Back</button>
+    <h2>360° AR Preview</h2>
+    <a id="save-btn" download="hugin_pano.jpg">Save JPEG</a>
+  </div>
+  <div id="heading-strip">
+    <svg viewBox="0 0 80 80" width="64" height="64" style="flex-shrink:0">
+      <circle cx="40" cy="40" r="38" fill="#161520" stroke="#2E2D3A" stroke-width="1.5"/>
+      <text x="40" y="11" text-anchor="middle" fill="#C9A84C" font-size="10" font-weight="700" font-family="system-ui">N</text>
+      <text x="40" y="74" text-anchor="middle" fill="#555" font-size="10" font-family="system-ui">S</text>
+      <text x="72" y="44" text-anchor="middle" fill="#555" font-size="10" font-family="system-ui">E</text>
+      <text x="8"  y="44" text-anchor="middle" fill="#555" font-size="10" font-family="system-ui">W</text>
+      <g class="heading-needle" id="compass-needle">
+        <polygon points="40,14 36.5,40 43.5,40" fill="#F5F0E8"/>
+        <polygon points="40,66 36.5,40 43.5,40" fill="#555"/>
+        <circle cx="40" cy="40" r="3.5" fill="#0C0B10" stroke="#F5F0E8" stroke-width="1.5"/>
+      </g>
+    </svg>
+    <div id="heading-controls">
+      <span id="heading-lbl">Entrance direction</span>
+      <input type="range" id="heading-range" min="0" max="359" value="0">
+      <div class="heading-row">
+        <span id="heading-val" style="flex:1">North (0°)</span>
+      </div>
+    </div>
+  </div>
+  <div id="three-result-container"></div>
+</div>
+
+<script>
+const SERVER_URL   = location.origin;
+const AUTO_DELAY   = 1200;
+const ALIGN_THRESH = 0.15;
+const DIR_LABELS   = ['North','NE','East','SE','South','SW','West','NW'];
+const STAGE_MSGS   = { starting:'Starting Hugin…', loading:'Loading images…', stitching:'Hugin is stitching panorama…', saving:'Saving output…' };
+
+const TARGETS = [
+  [  85,   0],
+  [  50,   0], [ 50,  60], [ 50, 120], [ 50, 180], [ 50, 240], [ 50, 300],
+  [   0,   0], [  0,  45], [  0,  90], [  0, 135], [  0, 180], [  0, 225], [   0, 270], [  0, 315],
+  [ -45,  30], [-45,  90], [-45, 150], [-45, 210], [-45, 270], [-45, 330],
+  [ -85,   0],
+];
+
+// ── State ─────────────────────────────────────────────────────────
+let gyroAvailable = false;
+let orientData    = { alpha:0, beta:0, gamma:0 };
+let screenAngle   = 0;
+let aligningIdx   = -1;
+let alignStart    = 0;
+let rafId         = null;
+let currentPanoUrl  = '';
+let currentSession  = '';
+let pollInterval    = null;
+let shotCount       = 0;
+let uploadCount     = 0;
+let uploadFailed    = new Set();
+let detectedFov     = 75.0;
+
+// Three.js AR Capture
+let renderer3, scene3, camera3, targetDots = [];
+
+// Three.js Result Viewer
+let resScene, resCamera, resRenderer, resControls, resMesh;
+
+// ── DOM ───────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const videoEl      = $('camera-video');
+const guideCanvas  = $('guide-canvas');
+const reticleEl    = $('reticle');
+const cdSvg        = $('countdown-svg');
+const cdCircle     = $('countdown-circle');
+const statusEl     = $('status');
+const shotDotsEl   = $('shot-dots');
+const bottomBar    = $('bottom-bar');
+const captureBtn   = $('capture-btn');
+const stitchBtn    = $('stitch-btn');
+const loadingEl    = $('loading');
+const resultScreen = $('result-screen');
+const headingStrip = $('heading-strip');
+const compassNeedle = $('compass-needle');
+const headingRange  = $('heading-range');
+const headingVal    = $('heading-val');
+const uploadFill    = $('upload-fill');
+const uploadLabel   = $('upload-label');
+const guideArrow    = $('guide-arrow');
+const dotHint       = $('dot-hint');
+
+// ── Status banner ─────────────────────────────────────────────────
+let _statusTimer = null;
+function showStatus(msg, duration) {
+  statusEl.textContent = msg;
+  statusEl.style.display = 'block';
+  if (_statusTimer) clearTimeout(_statusTimer);
+  if (duration > 0) _statusTimer = setTimeout(() => { statusEl.style.display = 'none'; }, duration);
+}
+
+// ── Init ──────────────────────────────────────────────────────────
+$('start-btn').addEventListener('click', () => initCapture(true));
+$('skip-btn').addEventListener('click',  () => initCapture(false));
+
+async function initCapture(withGyro) {
+  currentSession = Math.random().toString(36).slice(2, 12);
+
+  try {
+    // Try full HD first, fall back to basic if constraints cause issues
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+        audio: false,
+      });
+    } catch (e1) {
+      console.warn('HD constraints failed, trying basic:', e1.message);
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+    }
+
+    // Auto-select ultra-wide lens if available
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter(d => d.kind === 'videoinput');
+      let uwDeviceId = null;
+      for (const d of videoDevices) {
+        const label = d.label.toLowerCase();
+        if (label.includes('front') || label.includes('selfie')) continue;
+        if (label.includes('ultra wide') || label.includes('ultrawide') || label.includes('0.5x') || label.includes('wide-angle')) {
+          uwDeviceId = d.deviceId;
+          break;
+        }
+      }
+      if (uwDeviceId) {
+        stream.getTracks().forEach(t => t.stop());
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { deviceId: { exact: uwDeviceId }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+          audio: false,
+        });
+        detectedFov = 110.0;
+        showStatus('Ultra-wide lens selected (110°)', 2500);
+      }
+    } catch (e) { console.warn('Ultra-wide selection failed:', e.message); }
+
+    videoEl.srcObject = stream;
+    await new Promise(r => { videoEl.onloadedmetadata = r; });
+    videoEl.play();
+
+    // Enforce min zoom + lock exposure and white balance so shots stay consistent
+    const track = stream.getVideoTracks()[0];
+    const caps  = track.getCapabilities?.();
+    if (caps?.zoom) await track.applyConstraints({ advanced: [{ zoom: caps.zoom.min }] }).catch(() => {});
+    const lockConstraints = {};
+    if (caps?.exposureMode?.includes('manual'))      lockConstraints.exposureMode      = 'manual';
+    if (caps?.whiteBalanceMode?.includes('manual'))  lockConstraints.whiteBalanceMode  = 'manual';
+    if (Object.keys(lockConstraints).length) {
+      await track.applyConstraints({ advanced: [lockConstraints] }).catch(() => {});
+      showStatus('Exposure locked ✓', 2000);
+    }
+
+    // Show actual stream resolution
+    const settings = track.getSettings?.() || {};
+    const sw = settings.width  || videoEl.videoWidth;
+    const sh = settings.height || videoEl.videoHeight;
+    const orient = sw >= sh ? 'landscape ✓' : '⚠️ portrait — rotate phone';
+    showStatus(`Camera: ${sw}×${sh} ${orient}`, 4000);
+  } catch (e) {
+    alert('Camera error: ' + e.name + '\n' + e.message); return;
+  }
+
+  if (withGyro) {
+    if (typeof DeviceOrientationEvent?.requestPermission === 'function') {
+      try { gyroAvailable = (await DeviceOrientationEvent.requestPermission()) === 'granted'; } catch { gyroAvailable = false; }
+    } else {
+      gyroAvailable = 'DeviceOrientationEvent' in window;
+    }
+    if (gyroAvailable) {
+      window.addEventListener('deviceorientation', e => {
+        orientData.alpha = e.alpha ?? 0; orientData.beta  = e.beta  ?? 0; orientData.gamma = e.gamma ?? 0;
+      });
+    }
+  }
+
+  window.addEventListener('orientationchange', () => { screenAngle = screen.orientation?.angle ?? window.orientation ?? 0; });
+  screenAngle = screen.orientation?.angle ?? window.orientation ?? 0;
+
+  $('start-screen').style.display = 'none';
+  videoEl.style.display = 'block';
+  guideCanvas.style.display = 'block';
+  reticleEl.style.display = 'block';
+  bottomBar.style.display = 'flex';
+  shotDotsEl.style.display = 'flex';
+
+  buildDots();
+  initThreeJS();
+
+  if (!gyroAvailable) {
+    $('gyro-retry-btn').style.display = 'block';
+    showStatus('Gyroscope off — tap 📷 to capture manually', 0);
+  } else {
+    showStatus('Aim reticle at the glowing rings', 2500);
+  }
+}
+
+// ── Gyro retry ────────────────────────────────────────────────────
+$('gyro-retry-btn').addEventListener('click', async () => {
+  try {
+    let granted = false;
+    if (typeof DeviceOrientationEvent?.requestPermission === 'function') {
+      granted = (await DeviceOrientationEvent.requestPermission()) === 'granted';
+    } else { granted = 'DeviceOrientationEvent' in window; }
+    if (granted && !gyroAvailable) {
+      gyroAvailable = true;
+      window.addEventListener('deviceorientation', e => { orientData.alpha = e.alpha ?? 0; orientData.beta = e.beta ?? 0; orientData.gamma = e.gamma ?? 0; });
+      $('gyro-retry-btn').style.display = 'none';
+      showStatus('Gyroscope enabled', 3000);
+    }
+  } catch {}
+});
+
+// ── Mini-map ──────────────────────────────────────────────────────
+function buildDots() {
+  shotDotsEl.innerHTML = '';
+  TARGETS.forEach((_, i) => {
+    const d = document.createElement('div');
+    d.className = 'sdot'; d.id = `sdot_${i}`;
+    shotDotsEl.appendChild(d);
+  });
+}
+function markDot(idx, cls) {
+  const el = $(`sdot_${idx}`);
+  if (!el) return;
+  el.classList.remove('active','captured','done','failed');
+  el.classList.add(cls);
+}
+
+// ── Three.js AR Overlay ───────────────────────────────────────────
+function initThreeJS() {
+  renderer3 = new THREE.WebGLRenderer({ canvas: guideCanvas, alpha: true, antialias: true });
+  renderer3.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer3.setClearColor(0, 0);
+  scene3  = new THREE.Scene();
+  camera3 = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.01, 100);
+
+  // Industrial HUD Grid
+  const gridGeo = new THREE.SphereGeometry(4, 24, 16);
+  const gridMat = new THREE.MeshBasicMaterial({ color: 0xC9A84C, wireframe: true, transparent: true, opacity: 0.06 });
+  scene3.add(new THREE.Mesh(gridGeo, gridMat));
+
+  // Premium AR Rings
+  const ringGeo = new THREE.RingGeometry(0.12, 0.16, 32);
+  const centerGeo = new THREE.CircleGeometry(0.04, 16);
+  
+  TARGETS.forEach(([el, az], i) => {
+    const pos = elAzToVec3(el, az, 3);
+    
+    const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, transparent: true, opacity: 0.9 });
+    const ringMesh = new THREE.Mesh(ringGeo, mat);
+    ringMesh.position.copy(pos);
+    ringMesh.lookAt(0, 0, 0);
+    
+    const centerMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, transparent: true, opacity: 0.9 });
+    const centerMesh = new THREE.Mesh(centerGeo, centerMat);
+    centerMesh.position.copy(pos.clone().multiplyScalar(0.98));
+    centerMesh.lookAt(0, 0, 0);
+    
+    const group = new THREE.Group();
+    group.add(ringMesh);
+    group.add(centerMesh);
+    scene3.add(group);
+    
+    targetDots.push({ group, ring: ringMesh, center: centerMesh, captured: false, index: i, position: pos });
+  });
+
+  window.addEventListener('resize', onResize3);
+  onResize3();
+  animate3();
+}
+
+function elAzToVec3(el, az, r) {
+  const elR = THREE.MathUtils.degToRad(el);
+  const azR = THREE.MathUtils.degToRad(az);
+  return new THREE.Vector3(r * Math.cos(elR) * Math.sin(azR), r * Math.sin(elR), r * Math.cos(elR) * Math.cos(azR));
+}
+
+function deviceOrientToQuat(alpha, beta, gamma, screenDeg) {
+  const q = new THREE.Quaternion();
+  const q1 = new THREE.Quaternion(-Math.SQRT1_2, 0, 0, Math.SQRT1_2);
+  const q0 = new THREE.Quaternion();
+  const euler = new THREE.Euler(THREE.MathUtils.degToRad(beta), THREE.MathUtils.degToRad(alpha), THREE.MathUtils.degToRad(-gamma), 'YXZ');
+  q.setFromEuler(euler);
+  q.multiply(q1);
+  q0.setFromAxisAngle(new THREE.Vector3(0,0,1), THREE.MathUtils.degToRad(-screenDeg));
+  q.multiply(q0);
+  return q;
+}
+
+function animate3() {
+  rafId = requestAnimationFrame(animate3);
+  if (gyroAvailable) camera3.quaternion.copy(deviceOrientToQuat(orientData.alpha, orientData.beta, orientData.gamma, screenAngle));
+
+  let alignedIdx = -1;
+  targetDots.forEach(t => {
+    if (t.captured) { 
+      t.ring.material.color.setHex(0x22c55e); 
+      t.center.material.color.setHex(0x22c55e); 
+      t.ring.material.opacity = 0.2;
+      t.center.material.opacity = 0.2;
+      return; 
+    }
+    const ndc  = t.position.clone().project(camera3);
+    const dist = Math.hypot(ndc.x, ndc.y);
+    if (ndc.z < 1 && dist < ALIGN_THRESH) { 
+      t.ring.material.color.setHex(0xC9A84C); 
+      t.center.material.color.setHex(0xC9A84C);
+      alignedIdx = t.index; 
+    } else { 
+      t.ring.material.color.setHex(0xffffff);
+      t.center.material.color.setHex(0xffffff);
+    }
+  });
+
+  if (gyroAvailable) handleAlignment(alignedIdx);
+  updateGuideArrow();
+  renderer3.render(scene3, camera3);
+}
+
+function onResize3() {
+  renderer3.setSize(innerWidth, innerHeight);
+  camera3.aspect = innerWidth / innerHeight;
+  camera3.updateProjectionMatrix();
+}
+
+function handleAlignment(idx) {
+  if (idx >= 0 && idx === aligningIdx) {
+    const elapsed = Date.now() - alignStart;
+    updateCountdownRing(elapsed / AUTO_DELAY);
+    if (elapsed >= AUTO_DELAY) { stopCountdown(); doCapture(idx); }
+  } else if (idx >= 0 && idx !== aligningIdx) {
+    aligningIdx = idx; alignStart = Date.now(); startCountdown();
+  } else {
+    if (aligningIdx >= 0) { aligningIdx = -1; stopCountdown(); }
+  }
+}
+
+const CIRCUMFERENCE = 251.3;
+function startCountdown() { cdSvg.style.display = 'block'; cdCircle.style.strokeDashoffset = CIRCUMFERENCE; }
+function stopCountdown()  { cdSvg.style.display = 'none';  cdCircle.style.strokeDashoffset = CIRCUMFERENCE; }
+function updateCountdownRing(p) { cdCircle.style.strokeDashoffset = CIRCUMFERENCE * (1 - Math.min(p, 1)); }
+
+// ── Guide arrow ───────────────────────────────────────────────────
+function updateGuideArrow() {
+  const uncaptured = targetDots.filter(t => !t.captured);
+  if (!gyroAvailable || uncaptured.length === 0) {
+    guideArrow.style.display = 'none'; dotHint.style.display = 'none'; return;
+  }
+
+  const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera3.quaternion);
+  const up      = new THREE.Vector3(0, 1, 0).applyQuaternion(camera3.quaternion);
+  const right   = new THREE.Vector3(1, 0, 0).applyQuaternion(camera3.quaternion);
+
+  let bestDot = null, bestAngle = Infinity;
+  uncaptured.forEach(t => {
+    const dir   = t.position.clone().normalize();
+    const angle = Math.acos(Math.max(-1, Math.min(1, forward.dot(dir))));
+    if (angle < bestAngle) { bestAngle = angle; bestDot = t; }
+  });
+
+  if (!bestDot || bestAngle < 0.25) {
+    guideArrow.style.display = 'none'; dotHint.style.display = 'none'; return;
+  }
+
+  const toDir = bestDot.position.clone().normalize();
+  const screenDeg = Math.atan2(toDir.dot(right), toDir.dot(up)) * 180 / Math.PI;
+
+  guideArrow.style.display = 'block';
+  guideArrow.style.transform = `translate(-50%,-50%) rotate(${screenDeg}deg)`;
+
+  const rem = uncaptured.length;
+  dotHint.style.display = 'block';
+  dotHint.textContent = `${rem} target${rem !== 1 ? 's' : ''} left`;
+}
+
+// ── Capture & immediate upload ────────────────────────────────────
+let capturing = false;
+
+function doCapture(targetIdx = -1) {
+  if (capturing) return;
+  capturing = true;
+
+  const canvas = document.createElement('canvas');
+  canvas.width  = videoEl.videoWidth;
+  canvas.height = videoEl.videoHeight;
+  canvas.getContext('2d').drawImage(videoEl, 0, 0);
+
+  canvas.toBlob(blob => {
+    if (!blob || blob.size < 10000) {
+      showStatus('Camera paused — stay on this page', 2500);
+      capturing = false; return;
+    }
+
+    let markIdx = targetIdx;
+    if (markIdx < 0) {
+      let bestDist = Infinity;
+      targetDots.forEach((t, i) => {
+        if (t.captured) return;
+        const dist = Math.hypot(...Object.values(t.position.clone().project(camera3)).slice(0,2));
+        if (dist < bestDist) { bestDist = dist; markIdx = i; }
+      });
+    }
+    if (markIdx >= 0 && targetDots[markIdx]) {
+      targetDots[markIdx].captured = true;
+      markDot(markIdx, 'captured'); 
+    }
+
+    shotCount++;
+    $('shot-count').textContent = `${shotCount} shot${shotCount !== 1 ? 's' : ''}`;
+
+    const flash = document.createElement('div');
+    flash.className = 'flash';
+    document.body.appendChild(flash);
+    setTimeout(() => flash.remove(), 200);
+
+    aligningIdx = -1;
+    capturing   = false;
+
+    uploadShot(blob, markIdx);
+  }, 'image/jpeg', 0.88);
+}
+
+captureBtn.addEventListener('click', () => { stopCountdown(); aligningIdx = -1; doCapture(-1); });
+
+function resizeBlob(blob, maxW = 1280) {
+  return new Promise(resolve => {
+    const img = new Image();
+    const url = URL.createObjectURL(blob);
+    img.onload = () => {
+      const scale = Math.min(1, maxW / img.width);
+      const can   = document.createElement('canvas');
+      can.width   = Math.round(img.width  * scale);
+      can.height  = Math.round(img.height * scale);
+      can.getContext('2d').drawImage(img, 0, 0, can.width, can.height);
+      URL.revokeObjectURL(url);
+      can.toBlob(out => resolve(out || blob), 'image/jpeg', 0.85);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(blob); };
+    img.src = url;
+  });
+}
+
+async function uploadShot(blob, dotIdx) {
+  const small = await resizeBlob(blob);
+  const form  = new FormData();
+  const [el, az] = dotIdx >= 0 ? TARGETS[dotIdx] : [0, 0];
+  const name = `el${String(el).replace('-','n')}_az${String(az).padStart(3,'0')}.jpg`;
+  form.append('file', small, name);
+
+  try {
+    await fetch(`${SERVER_URL}/upload/${currentSession}`, { method: 'POST', body: form });
+    uploadCount++;
+    uploadFailed.delete(dotIdx);
+    if (dotIdx >= 0) markDot(dotIdx, 'done');
+    updateUploadBar();
+    if (uploadCount >= 2) stitchBtn.disabled = false;
+  } catch {
+    uploadFailed.add(dotIdx);
+    if (dotIdx >= 0) markDot(dotIdx, 'failed');
+    updateUploadBar();
+    showStatus('Upload failed — check connection', 2000);
+  }
+}
+
+function updateUploadBar() {
+  const pct = shotCount > 0 ? (uploadCount / shotCount) * 100 : 0;
+  uploadFill.style.width = pct + '%';
+  const failCount = uploadFailed.size;
+  uploadLabel.textContent = failCount > 0
+    ? `${uploadCount}/${shotCount} uploaded · ${failCount} failed`
+    : `${uploadCount}/${shotCount} uploaded`;
+}
+
+// ── Stitch (Hugin) ────────────────────────────────────────────────
+stitchBtn.addEventListener('click', async () => {
+  if (uploadCount < 2) return;
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+
+  $('loading-stage').textContent = 'Hugin is stitching…';
+  loadingEl.style.display = 'flex';
+  stitchBtn.disabled = true;
+
+  pollInterval = setInterval(async () => {
+    try {
+      const r = await fetch(`${SERVER_URL}/status/${currentSession}`);
+      const d = await r.json();
+      const msg = STAGE_MSGS[d.stage];
+      if (msg) $('loading-stage').textContent = msg;
+    } catch {}
+  }, 1000);
+
+  try {
+    $('loading-stage').textContent = 'Starting Hugin stitcher…';
+    const res  = await fetch(`${SERVER_URL}/stitch/${currentSession}?fov=${detectedFov}`, { method: 'POST' });
+    const data = await res.json();
+    
+    clearInterval(pollInterval); pollInterval = null;
+
+    if (data.status !== 'ok') throw new Error(data.message || 'Hugin stitching failed');
+
+    currentPanoUrl = SERVER_URL + data.url;
+    loadingEl.style.display = 'none';
+
+    videoEl.style.display = 'none';
+    guideCanvas.style.display = 'none';
+    reticleEl.style.display = 'none';
+    bottomBar.style.display = 'none';
+    shotDotsEl.style.display = 'none';
+    statusEl.style.display = 'none';
+    resultScreen.style.display = 'flex';
+    headingStrip.style.display = 'flex';
+
+    $('save-btn').href = currentPanoUrl;
+
+    initResultThreeJS(currentPanoUrl);
+
+  } catch (err) {
+    clearInterval(pollInterval); pollInterval = null;
+    loadingEl.style.display = 'none';
+    stitchBtn.disabled = false;
+    alert('Error: ' + err.message);
+    animate3();
+  }
+});
+
+// ── Three.js Result Viewer ────────────────────────────────────────
+function initResultThreeJS(textureUrl) {
+  const container = $('three-result-container');
+  container.innerHTML = ''; 
+
+  resScene = new THREE.Scene();
+  
+  resCamera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+  resCamera.position.set(0, 0, 0.1);
+
+  resRenderer = new THREE.WebGLRenderer({ antialias: true });
+  resRenderer.setSize(container.clientWidth, container.clientHeight);
+  container.appendChild(resRenderer.domElement);
+
+  resControls = new THREE.OrbitControls(resCamera, resRenderer.domElement);
+  resControls.enableZoom = true;
+  resControls.enablePan = false;
+  resControls.rotateSpeed = -0.5;
+
+  const textureLoader = new THREE.TextureLoader();
+  textureLoader.load(textureUrl, (texture) => {
+    texture.mapping = THREE.EquirectangularReflectionMapping;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    
+    const geometry = new THREE.SphereGeometry(500, 60, 40);
+    geometry.scale(-1, 1, 1);
+    
+    const material = new THREE.MeshBasicMaterial({ map: texture });
+    resMesh = new THREE.Mesh(geometry, material);
+    resScene.add(resMesh);
+    
+    animateResult();
+  });
+
+  window.addEventListener('resize', onResultResize, false);
+}
+
+function onResultResize() {
+  const container = $('three-result-container');
+  if (!container || !resCamera || !resRenderer) return;
+  resCamera.aspect = container.clientWidth / container.clientHeight;
+  resCamera.updateProjectionMatrix();
+  resRenderer.setSize(container.clientWidth, container.clientHeight);
+}
+
+function animateResult() {
+  if (resultScreen.style.display === 'none') return;
+  requestAnimationFrame(animateResult);
+  resControls.update();
+  resRenderer.render(resScene, resCamera);
+}
+
+// ── Back ──────────────────────────────────────────────────────────
+$('back-btn').addEventListener('click', () => {
+  resultScreen.style.display = 'none';
+  headingStrip.style.display = 'none';
+  videoEl.style.display      = 'block';
+  guideCanvas.style.display  = 'block';
+  reticleEl.style.display    = 'block';
+  bottomBar.style.display    = 'flex';
+  shotDotsEl.style.display   = 'flex';
+  stitchBtn.disabled         = uploadCount < 2;
+  applyHeading(0);
+  animate3();
+});
+
+// ── Heading ───────────────────────────────────────────────────────
+function applyHeading(deg) {
+  deg = ((deg % 360) + 360) % 360;
+  headingRange.value = deg;
+  compassNeedle.style.transform = `rotate(${deg}deg)`;
+  headingVal.textContent = `${DIR_LABELS[Math.round(deg/45)%8]} (${Math.round(deg)}°)`;
+  
+  if (resMesh) {
+    // Rotate the sphere itself so the entrance aligns with the camera's initial view
+    resMesh.rotation.y = THREE.MathUtils.degToRad(-deg);
+  }
+}
+headingRange.addEventListener('input', () => applyHeading(+headingRange.value));
+
+</script>
+</body>
+</html>

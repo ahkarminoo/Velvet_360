@@ -1,0 +1,203 @@
+# hugin project file
+#hugin_ptoversion 2
+p f2 w4508 h2254 v360  k0 E-0.130062 R0 n"TIFF_m c:LZW r:CROP"
+m i0
+
+# image lines
+#-hugin  cropFactor=1
+i w1080 h1920 f0 v72.0880407091846 Ra-0.576863050460815 Rb-1.40547370910645 Rc1.15375173091888 Rd-0.471171766519547 Re0.380535572767258 Eev0 Er1 Eb1 r0 p0 y0 TrX0 TrY0 TrZ0 Tpy0 Tpp0 j0 a0 b0.0331404966934541 c0 d-11.0386591937075 e-9.41427918143572 g0 t0 Va1 Vb-1.28552801938841 Vc0.57864557397745 Vd0.072255990096763 Vx0 Vy0  Vm5 n"D:\Velvet\Velvet\prototype-360\uploads\3wlyv7cotu\el0_az000.jpg"
+#-hugin  cropFactor=1
+i w1080 h1920 f0 v=0 Ra=0 Rb=0 Rc=0 Rd=0 Re=0 Eev-0.143019506007352 Er0.940658545442777 Eb1.09668319719789 r-0.196581047507258 p2.50242514924348 y-45.8421623442132 TrX0 TrY0 TrZ0 Tpy0 Tpp0 j0 a=0 b=0 c=0 d=0 e=0 g=0 t=0 Va=0 Vb=0 Vc=0 Vd=0 Vx=0 Vy=0  Vm5 n"D:\Velvet\Velvet\prototype-360\uploads\3wlyv7cotu\el0_az045.jpg"
+#-hugin  cropFactor=1
+i w1080 h1920 f0 v=0 Ra=0 Rb=0 Rc=0 Rd=0 Re=0 Eev0.185842177844181 Er0.926346869158608 Eb1.1445307866535 r0.294236424575614 p2.20919954820304 y-92.4082314318192 TrX0 TrY0 TrZ0 Tpy0 Tpp0 j0 a=0 b=0 c=0 d=0 e=0 g=0 t=0 Va=0 Vb=0 Vc=0 Vd=0 Vx=0 Vy=0  Vm5 n"D:\Velvet\Velvet\prototype-360\uploads\3wlyv7cotu\el0_az090.jpg"
+#-hugin  cropFactor=1
+i w1080 h1920 f0 v=0 Ra=0 Rb=0 Rc=0 Rd=0 Re=0 Eev0.447455438360304 Er0.941196222546315 Eb1.11405298704151 r-0.487784352683113 p2.21065440323306 y-137.697105143447 TrX0 TrY0 TrZ0 Tpy0 Tpp0 j0 a=0 b=0 c=0 d=0 e=0 g=0 t=0 Va=0 Vb=0 Vc=0 Vd=0 Vx=0 Vy=0  Vm5 n"D:\Velvet\Velvet\prototype-360\uploads\3wlyv7cotu\el0_az135.jpg"
+#-hugin  cropFactor=1
+i w1080 h1920 f0 v=0 Ra=0 Rb=0 Rc=0 Rd=0 Re=0 Eev0.355858728478696 Er0.967626606470781 Eb1.14747212509338 r0.987008015671881 p3.88824547799835 y175.897923316476 TrX0 TrY0 TrZ0 Tpy0 Tpp0 j0 a=0 b=0 c=0 d=0 e=0 g=0 t=0 Va=0 Vb=0 Vc=0 Vd=0 Vx=0 Vy=0  Vm5 n"D:\Velvet\Velvet\prototype-360\uploads\3wlyv7cotu\el0_az180.jpg"
+#-hugin  cropFactor=1
+i w1080 h1920 f0 v=0 Ra=0 Rb=0 Rc=0 Rd=0 Re=0 Eev-0.261826976437762 Er0.927202958473472 Eb1.18447008101659 r-0.12117952927305 p4.11025392074344 y129.49772095595 TrX0 TrY0 TrZ0 Tpy0 Tpp0 j0 a=0 b=0 c=0 d=0 e=0 g=0 t=0 Va=0 Vb=0 Vc=0 Vd=0 Vx=0 Vy=0  Vm5 n"D:\Velvet\Velvet\prototype-360\uploads\3wlyv7cotu\el0_az225.jpg"
+#-hugin  cropFactor=1
+i w1080 h1920 f0 v=0 Ra=0 Rb=0 Rc=0 Rd=0 Re=0 Eev-0.550294768296661 Er0.963019027412938 Eb1.23081622345084 r-3.63565704228605 p3.17113070627085 y81.7692144375265 TrX0 TrY0 TrZ0 Tpy0 Tpp0 j0 a=0 b=0 c=0 d=0 e=0 g=0 t=0 Va=0 Vb=0 Vc=0 Vd=0 Vx=0 Vy=0  Vm5 n"D:\Velvet\Velvet\prototype-360\uploads\3wlyv7cotu\el0_az270.jpg"
+#-hugin  cropFactor=1
+i w1080 h1920 f0 v=0 Ra=0 Rb=0 Rc=0 Rd=0 Re=0 Eev-0.38324934094243 Er0.999324970979678 Eb1.18139789301425 r0.916754175165878 p0.777179293658046 y-45 TrX0 TrY0 TrZ0 Tpy0 Tpp0 j0 a=0 b=0 c=0 d=0 e=0 g=0 t=0 Va=0 Vb=0 Vc=0 Vd=0 Vx=0 Vy=0  Vm5 n"D:\Velvet\Velvet\prototype-360\uploads\3wlyv7cotu\el0_az315.jpg"
+#-hugin  cropFactor=1
+i w1080 h1920 f0 v=0 Ra=0 Rb=0 Rc=0 Rd=0 Re=0 Eev-0.470176897677038 Er1.09693253486916 Eb1.04520324775099 r0 p50 y0 TrX0 TrY0 TrZ0 Tpy0 Tpp0 j0 a=0 b=0 c=0 d=0 e=0 g=0 t=0 Va=0 Vb=0 Vc=0 Vd=0 Vx=0 Vy=0  Vm5 n"D:\Velvet\Velvet\prototype-360\uploads\3wlyv7cotu\el50_az000.jpg"
+#-hugin  cropFactor=1
+i w1080 h1920 f0 v=0 Ra=0 Rb=0 Rc=0 Rd=0 Re=0 Eev-0.819046463907624 Er1.06782512012918 Eb1.00007384121131 r0 p50 y60 TrX0 TrY0 TrZ0 Tpy0 Tpp0 j0 a=0 b=0 c=0 d=0 e=0 g=0 t=0 Va=0 Vb=0 Vc=0 Vd=0 Vx=0 Vy=0  Vm5 n"D:\Velvet\Velvet\prototype-360\uploads\3wlyv7cotu\el50_az060.jpg"
+#-hugin  cropFactor=1
+i w1080 h1920 f0 v=0 Ra=0 Rb=0 Rc=0 Rd=0 Re=0 Eev-0.726221082990428 Er1.08725621511061 Eb0.964671223705769 r0 p50 y120 TrX0 TrY0 TrZ0 Tpy0 Tpp0 j0 a=0 b=0 c=0 d=0 e=0 g=0 t=0 Va=0 Vb=0 Vc=0 Vd=0 Vx=0 Vy=0  Vm5 n"D:\Velvet\Velvet\prototype-360\uploads\3wlyv7cotu\el50_az120.jpg"
+#-hugin  cropFactor=1
+i w1080 h1920 f0 v=0 Ra=0 Rb=0 Rc=0 Rd=0 Re=0 Eev0.101437157787328 Er1.11217218502009 Eb0.925277750562568 r-4.36181480916299 p55.2334093982827 y174.414942849032 TrX0 TrY0 TrZ0 Tpy0 Tpp0 j0 a=0 b=0 c=0 d=0 e=0 g=0 t=0 Va=0 Vb=0 Vc=0 Vd=0 Vx=0 Vy=0  Vm5 n"D:\Velvet\Velvet\prototype-360\uploads\3wlyv7cotu\el50_az180.jpg"
+#-hugin  cropFactor=1
+i w1080 h1920 f0 v=0 Ra=0 Rb=0 Rc=0 Rd=0 Re=0 Eev-0.425594553348718 Er1.09576110069698 Eb1.00625641438984 r0 p50 y-120 TrX0 TrY0 TrZ0 Tpy0 Tpp0 j0 a=0 b=0 c=0 d=0 e=0 g=0 t=0 Va=0 Vb=0 Vc=0 Vd=0 Vx=0 Vy=0  Vm5 n"D:\Velvet\Velvet\prototype-360\uploads\3wlyv7cotu\el50_az240.jpg"
+#-hugin  cropFactor=1
+i w1080 h1920 f0 v=0 Ra=0 Rb=0 Rc=0 Rd=0 Re=0 Eev0.052742422020079 Er1.16502372573644 Eb1.02024638067199 r0 p50 y-60 TrX0 TrY0 TrZ0 Tpy0 Tpp0 j0 a=0 b=0 c=0 d=0 e=0 g=0 t=0 Va=0 Vb=0 Vc=0 Vd=0 Vx=0 Vy=0  Vm5 n"D:\Velvet\Velvet\prototype-360\uploads\3wlyv7cotu\el50_az300.jpg"
+#-hugin  cropFactor=1
+i w1080 h1920 f0 v=0 Ra=0 Rb=0 Rc=0 Rd=0 Re=0 Eev0.0780157704281133 Er1.15117069833181 Eb0.959023159588799 r0 p85 y0 TrX0 TrY0 TrZ0 Tpy0 Tpp0 j0 a=0 b=0 c=0 d=0 e=0 g=0 t=0 Va=0 Vb=0 Vc=0 Vd=0 Vx=0 Vy=0  Vm5 n"D:\Velvet\Velvet\prototype-360\uploads\3wlyv7cotu\el85_az000.jpg"
+#-hugin  cropFactor=1
+i w1080 h1920 f0 v=0 Ra=0 Rb=0 Rc=0 Rd=0 Re=0 Eev-0.232582695340114 Er0.912172519917796 Eb1.36768002356494 r0 p-45 y30 TrX0 TrY0 TrZ0 Tpy0 Tpp0 j0 a=0 b=0 c=0 d=0 e=0 g=0 t=0 Va=0 Vb=0 Vc=0 Vd=0 Vx=0 Vy=0  Vm5 n"D:\Velvet\Velvet\prototype-360\uploads\3wlyv7cotu\eln45_az030.jpg"
+#-hugin  cropFactor=1
+i w1080 h1920 f0 v=0 Ra=0 Rb=0 Rc=0 Rd=0 Re=0 Eev0.020481349056661 Er0.844990797371691 Eb1.4838016548062 r0 p-45 y90 TrX0 TrY0 TrZ0 Tpy0 Tpp0 j0 a=0 b=0 c=0 d=0 e=0 g=0 t=0 Va=0 Vb=0 Vc=0 Vd=0 Vx=0 Vy=0  Vm5 n"D:\Velvet\Velvet\prototype-360\uploads\3wlyv7cotu\eln45_az090.jpg"
+#-hugin  cropFactor=1
+i w1080 h1920 f0 v=0 Ra=0 Rb=0 Rc=0 Rd=0 Re=0 Eev0.216866517521695 Er0.78255610559347 Eb1.49375473419522 r0 p-45 y150 TrX0 TrY0 TrZ0 Tpy0 Tpp0 j0 a=0 b=0 c=0 d=0 e=0 g=0 t=0 Va=0 Vb=0 Vc=0 Vd=0 Vx=0 Vy=0  Vm5 n"D:\Velvet\Velvet\prototype-360\uploads\3wlyv7cotu\eln45_az150.jpg"
+#-hugin  cropFactor=1
+i w1080 h1920 f0 v=0 Ra=0 Rb=0 Rc=0 Rd=0 Re=0 Eev0.247535373243572 Er0.891980795012107 Eb1.18925945939643 r0 p-45 y-150 TrX0 TrY0 TrZ0 Tpy0 Tpp0 j0 a=0 b=0 c=0 d=0 e=0 g=0 t=0 Va=0 Vb=0 Vc=0 Vd=0 Vx=0 Vy=0  Vm5 n"D:\Velvet\Velvet\prototype-360\uploads\3wlyv7cotu\eln45_az210.jpg"
+#-hugin  cropFactor=1
+i w1080 h1920 f0 v=0 Ra=0 Rb=0 Rc=0 Rd=0 Re=0 Eev0.340562011808555 Er1.3393905465026 Eb1.15149921039177 r0 p-45 y-90 TrX0 TrY0 TrZ0 Tpy0 Tpp0 j0 a=0 b=0 c=0 d=0 e=0 g=0 t=0 Va=0 Vb=0 Vc=0 Vd=0 Vx=0 Vy=0  Vm5 n"D:\Velvet\Velvet\prototype-360\uploads\3wlyv7cotu\eln45_az270.jpg"
+#-hugin  cropFactor=1
+i w1080 h1920 f0 v=0 Ra=0 Rb=0 Rc=0 Rd=0 Re=0 Eev-0.427384684066589 Er0.916404070683259 Eb1.15202723750166 r0 p-45 y-30 TrX0 TrY0 TrZ0 Tpy0 Tpp0 j0 a=0 b=0 c=0 d=0 e=0 g=0 t=0 Va=0 Vb=0 Vc=0 Vd=0 Vx=0 Vy=0  Vm5 n"D:\Velvet\Velvet\prototype-360\uploads\3wlyv7cotu\eln45_az330.jpg"
+#-hugin  cropFactor=1
+i w1080 h1920 f0 v=0 Ra=0 Rb=0 Rc=0 Rd=0 Re=0 Eev-0.468763954326823 Er0.860276889290864 Eb1.4170547512425 r0 p-85 y0 TrX0 TrY0 TrZ0 Tpy0 Tpp0 j0 a=0 b=0 c=0 d=0 e=0 g=0 t=0 Va=0 Vb=0 Vc=0 Vd=0 Vx=0 Vy=0  Vm5 n"D:\Velvet\Velvet\prototype-360\uploads\3wlyv7cotu\eln85_az000.jpg"
+
+
+# specify variables that should be optimized
+v v0
+v r0
+v p0
+v b0
+v d0
+v e0
+v r1
+v p1
+v y1
+v r2
+v p2
+v y2
+v r3
+v p3
+v y3
+v r4
+v p4
+v y4
+v r5
+v p5
+v y5
+v r6
+v p6
+v y6
+v r7
+v p7
+v y7
+v r8
+v p8
+v y8
+v r9
+v p9
+v y9
+v r10
+v p10
+v y10
+v r11
+v p11
+v y11
+v r12
+v p12
+v y12
+v r13
+v p13
+v y13
+v r14
+v p14
+v y14
+v r15
+v p15
+v y15
+v r16
+v p16
+v y16
+v r17
+v p17
+v y17
+v r18
+v p18
+v y18
+v r19
+v p19
+v y19
+v r20
+v p20
+v y20
+v r21
+v p21
+v y21
+v
+
+
+# control points
+c n1 N2 x132.939193320119 y982.822369836585 X757.697219758071 Y977.060241422336 t0
+c n1 N2 x201.947665082596 y971.087963661356 X825.774787589869 Y967.456699579299 t0
+c n1 N2 x218.563840999142 y817.682447874344 X843.79798712704 Y811.471434960016 t0
+c n1 N2 x229.901226168494 y862.01145541808 X857.845545083165 Y855.858064714149 t0
+c n1 N2 x219.557374450476 y968.062939252751 X843.654542000191 Y964.49537970586 t0
+c n2 N3 x121.98045890715 y1084.77552815801 X740.235713499699 Y1071.12818421604 t0
+c n2 N3 x159.050108164621 y1124.48468939098 X774.737776145908 Y1114.51788964642 t0
+c n2 N3 x246.483214319437 y881.530816214308 X846.714079732787 Y881.677544310796 t0
+c n2 N3 x250.814997598881 y1056.762297917 X865.996898500702 Y1061.27137443275 t0
+c n2 N3 x255.905439240098 y910.184088705502 X852.231437229013 Y910.709494675149 t0
+c n2 N3 x259.13437813564 y1055.96129383868 X875.193192200293 Y1061.81745506824 t0
+c n3 N4 x164.206816829409 y888.918956149038 X785.706750981884 Y912.581487945138 t0
+c n3 N4 x181.809526692413 y952.672502115428 X802.690118463086 Y972.555910934351 t0
+c n3 N4 x194.766189440904 y918.319267633751 X812.986898972982 Y939.093593096144 t0
+c n3 N4 x261.322192025919 y1152.8521258392 X912.921458298901 Y1185.03255165597 t0
+c n3 N4 x327.276773845113 y1160.52868168468 X993.513606898526 Y1208.68682404255 t0
+c n4 N5 x188.08534286759 y951.134897328485 X813.547779520449 Y949.596765631828 t0
+c n4 N5 x188.797898039759 y997.909044453243 X814.202258119581 Y994.996201779278 t0
+c n4 N5 x190.227840866836 y1074.82157369165 X817.390454928611 Y1069.35672171659 t0
+c n4 N5 x232.460048031366 y990.698981358937 X849.962281426567 Y989.469226413756 t0
+c n4 N5 x217.121598331423 y1018.18360394326 X844.793982030453 Y1016.02519036056 t0
+c n4 N5 x286.745272503292 y919.961620322041 X907.45681191782 Y915.517927456168 t0
+c n5 N6 x169.471177664204 y1011.4988666535 X816.017276485793 Y1016.06052687163 t0
+c n5 N6 x155.493192875205 y1046.17204214431 X802.91788285016 Y1047.31724533775 t0
+c n5 N6 x217.399020315119 y1063.87860097649 X858.550644450374 Y1071.62625505275 t0
+c n5 N6 x281.127432993229 y910.394458706148 X928.743214008984 Y918.743051599196 t0
+c n5 N6 x274.255429236507 y962.753940364166 X919.65435556072 Y973.867035500196 t0
+c n5 N6 x311.880346408861 y865.197138711474 X965.210819095923 Y869.863037361208 t0
+c n4 N11 x480.697796096533 y621.245757864522 X478.284612876345 Y1316.28470071851 t0
+c n4 N11 x479.204326429338 y644.445059793704 X476.203964592376 Y1338.89416111404 t0
+c n4 N11 x518.51898095814 y549.827534877454 X523.145617345122 Y1256.86617428491 t0
+c n4 N11 x567.943180752447 y564.884418466141 X563.03996552477 Y1271.21931135285 t0
+c n4 N11 x574.285718548474 y570.488735099558 X570.545957219714 Y1276.66159960458 t0
+c n4 N11 x580.996661945403 y535.162952773229 X575.635985441005 Y1247.44623103818 t0
+c n4 N11 x589.546549668883 y565.679167125726 X585.033714541488 Y1271.41608659486 t0
+c n4 N11 x578.587460436484 y578.634632588338 X574.983313796104 Y1284.14415517313 t0
+c n3 N3 x228 y434.4 X231.6 Y766.8 t1
+c n3 N3 x678 y776.4 X672 Y1005.6 t1
+c n7 N7 x920.4 y356.4 X918 Y476.4 t1
+c n2 N2 x872.4 y112.8 X876 Y349.2 t1
+c n2 N2 x874.8 y482.4 X879.6 Y656.4 t1
+c n6 N6 x230.4 y328.8 X225.6 Y462 t1
+c n1 N1 x728.4 y608.4 X724.8 Y1014 t1
+c n1 N1 x247.2 y153.6 X250.8 Y387.6 t1
+c n4 N4 x883.2 y859.2 X880.8 Y996 t1
+c n4 N4 x318 y896.4 X318 Y1016.4 t1
+
+#hugin_optimizeReferenceImage 0
+#hugin_blender enblend
+#hugin_remapper nona
+#hugin_enblendOptions 
+#hugin_enfuseOptions 
+#hugin_hdrmergeOptions 
+#hugin_verdandiOptions 
+#hugin_edgeFillMode 0
+#hugin_edgeFillKeepInput false
+#hugin_outputLDRBlended true
+#hugin_outputLDRLayers false
+#hugin_outputLDRExposureRemapped false
+#hugin_outputLDRExposureLayers false
+#hugin_outputLDRExposureBlended false
+#hugin_outputLDRStacks false
+#hugin_outputLDRExposureLayersFused false
+#hugin_outputHDRBlended false
+#hugin_outputHDRLayers false
+#hugin_outputHDRStacks false
+#hugin_outputLayersCompression LZW
+#hugin_outputImageType tif
+#hugin_outputImageTypeCompression LZW
+#hugin_outputJPEGQuality 100
+#hugin_outputImageTypeHDR exr
+#hugin_outputImageTypeHDRCompression LZW
+#hugin_outputStacksMinOverlap 0.7
+#hugin_outputLayersExposureDiff 0.5
+#hugin_outputRangeCompression 0
+#hugin_optimizerMasterSwitch 1
+#hugin_optimizerPhotoMasterSwitch 21
