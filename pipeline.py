@@ -4,9 +4,14 @@ import re
 import math
 import cv2
 import time
+import platform
 from pathlib import Path
 
 HUGIN_BIN = os.environ.get("HUGIN_BIN", "/usr/bin")
+
+def _bin(name):
+    suffix = ".exe" if platform.system() == "Windows" else ""
+    return os.path.join(HUGIN_BIN, f"{name}{suffix}")
 
 def run_hugin(cmd, cwd):
     print(f"Running: {' '.join(cmd)}")
@@ -69,34 +74,34 @@ def stitch_images(session_id: str, images_dir: Path, output_path: Path, fov: flo
     start_time = time.time()
     
     # 1. Generate PTO project
-    cmd1 = [os.path.join(HUGIN_BIN, "pto_gen.exe"), "-o", pto_file, f"--fov={fov}"] + img_paths
+    cmd1 = [_bin("pto_gen"), "-o", pto_file, f"--fov={fov}"] + img_paths
     if not run_hugin(cmd1, cwd=str(images_dir)): return False, "pto_gen failed"
 
     # 1b. Inject known angles from filenames so cpfind has correct starting positions
     inject_angles_into_pto(images_dir / pto_file)
 
     # 2. Find control points at full resolution for sharper seams
-    cmd2 = [os.path.join(HUGIN_BIN, "cpfind.exe"), "--multirow", "--fullscale", "-o", pto_file, pto_file]
+    cmd2 = [_bin("cpfind"), "--multirow", "--fullscale", "-o", pto_file, pto_file]
     if not run_hugin(cmd2, cwd=str(images_dir)): return False, "cpfind failed"
-    
+
     # 3. Clean bad control points
-    cmd3 = [os.path.join(HUGIN_BIN, "cpclean.exe"), "-o", pto_file, pto_file]
+    cmd3 = [_bin("cpclean"), "-o", pto_file, pto_file]
     if not run_hugin(cmd3, cwd=str(images_dir)): return False, "cpclean failed"
-    
+
     # 4. Find vertical/horizontal lines
-    cmd4 = [os.path.join(HUGIN_BIN, "linefind.exe"), "-o", pto_file, pto_file]
+    cmd4 = [_bin("linefind"), "-o", pto_file, pto_file]
     if not run_hugin(cmd4, cwd=str(images_dir)): return False, "linefind failed"
-    
+
     # 5. Optimize camera parameters
-    cmd5 = [os.path.join(HUGIN_BIN, "autooptimiser.exe"), "-a", "-m", "-l", "-s", "-p", "-o", pto_file, pto_file]
+    cmd5 = [_bin("autooptimiser"), "-a", "-m", "-l", "-s", "-p", "-o", pto_file, pto_file]
     if not run_hugin(cmd5, cwd=str(images_dir)): return False, "autooptimiser failed"
-    
+
     # 6. Calculate optimal canvas (no auto-crop — it can produce an empty mask)
-    cmd6 = [os.path.join(HUGIN_BIN, "pano_modify.exe"), "--canvas=AUTO", "-o", pto_file, pto_file]
+    cmd6 = [_bin("pano_modify"), "--canvas=AUTO", "-o", pto_file, pto_file]
     if not run_hugin(cmd6, cwd=str(images_dir)): return False, "pano_modify failed"
-    
+
     # 7. Execute stitching (nona + enblend)
-    cmd7 = [os.path.join(HUGIN_BIN, "hugin_executor.exe"), "--stitching", "--prefix=pano", pto_file]
+    cmd7 = [_bin("hugin_executor"), "--stitching", "--prefix=pano", pto_file]
     if not run_hugin(cmd7, cwd=str(images_dir)): return False, "hugin_executor failed"
     
     print(f"--- Hugin Pipeline completed in {time.time() - start_time:.1f} seconds ---")
