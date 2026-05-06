@@ -176,7 +176,6 @@ def stitch_images(
     cmd_enblend = [
         _bin("enblend"),
         "--levels=3",
-        "--no-optimize-seam",
         "--compression=LZW",
         "-o", "pano_final.tif",
     ] + [p.name for p in remapped]
