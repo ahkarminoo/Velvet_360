@@ -16,24 +16,25 @@ def _bin(name):
     return os.path.join(HUGIN_BIN, f"{name}{suffix}")
 
 
-def run_hugin(cmd, cwd, can_fail=False, timeout=600):
+def run_hugin(cmd, cwd, can_fail=False, timeout=600, discard_stdout=False):
     """Run a Hugin command. Returns True on success. If can_fail=True, returns False instead of crashing."""
     print(f"Running: {' '.join(cmd)}")
+    stdout_target = subprocess.DEVNULL if discard_stdout else subprocess.PIPE
     try:
         result = subprocess.run(
             cmd, cwd=cwd, check=True,
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            stdout=stdout_target, stderr=subprocess.PIPE,
             timeout=timeout
         )
-        if result.stdout:
+        if not discard_stdout and result.stdout:
             print(result.stdout.decode('utf-8', errors='ignore'))
         return True
     except subprocess.TimeoutExpired:
         print(f"[ERROR] {os.path.basename(cmd[0])} timed out after {timeout}s")
         return can_fail
     except subprocess.CalledProcessError as e:
-        stderr_msg = e.stderr.decode('utf-8', errors='ignore')
-        stdout_msg = e.stdout.decode('utf-8', errors='ignore') if e.stdout else ''
+        stderr_msg = e.stderr.decode('utf-8', errors='ignore') if e.stderr else ''
+        stdout_msg = e.stdout.decode('utf-8', errors='ignore') if (e.stdout and not discard_stdout) else ''
         print(f"[ERROR] {os.path.basename(cmd[0])} exited {e.returncode}")
         if stderr_msg:
             print(f"  stderr: {stderr_msg[:2000]}")
@@ -154,7 +155,7 @@ def stitch_images(
             return False, "autooptimiser failed — not enough overlapping control points to solve geometry."
 
     # ── Step 6: Canvas ───────────────────────────────────────────────
-    canvas = os.environ.get("STITCH_CANVAS", "4000x2000")
+    canvas = os.environ.get("STITCH_CANVAS", "AUTO")
     cmd6 = [_bin("pano_modify"), f"--canvas={canvas}", "-o", pto_file, pto_file]
     if not run_hugin(cmd6, cwd=str(images_dir)):
         return False, "pano_modify failed"
@@ -163,7 +164,7 @@ def stitch_images(
     stage("stitching")
     print(f"[INFO] Canvas: {canvas} — remapping images with nona...")
     cmd_nona = [_bin("nona"), "-m", "TIFF_m", "-o", "pano", pto_file]
-    if not run_hugin(cmd_nona, cwd=str(images_dir), timeout=600):
+    if not run_hugin(cmd_nona, cwd=str(images_dir), timeout=600, discard_stdout=True):
         return False, "nona failed — could not remap images"
 
     # ── Step 7b: Blend with enblend ──────────────────────────────────
@@ -175,9 +176,10 @@ def stitch_images(
     cmd_enblend = [
         _bin("enblend"),
         "--compression=LZW",
+        "--quiet",
         "-o", "pano_final.tif",
     ] + [p.name for p in remapped]
-    if not run_hugin(cmd_enblend, cwd=str(images_dir), timeout=600):
+    if not run_hugin(cmd_enblend, cwd=str(images_dir), timeout=600, discard_stdout=True):
         return False, "enblend failed — see logs for details"
 
     print(f"--- Hugin Pipeline completed in {time.time() - start_time:.1f} seconds ---")
