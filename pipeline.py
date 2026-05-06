@@ -6,32 +6,35 @@ import cv2
 import time
 import platform
 from pathlib import Path
+from typing import Callable, Optional
 
 HUGIN_BIN = os.environ.get("HUGIN_BIN", "/usr/bin")
+
 
 def _bin(name):
     suffix = ".exe" if platform.system() == "Windows" else ""
     return os.path.join(HUGIN_BIN, f"{name}{suffix}")
 
-def run_hugin(cmd, cwd):
-    print(f"Running: {' '.join(cmd)}", flush=True)
+
+def run_hugin(cmd, cwd, can_fail=False):
+    """Run a Hugin command. Returns True on success. If can_fail=True, returns False instead of crashing."""
+    print(f"Running: {' '.join(cmd)}")
     try:
-        subprocess.run(
+        result = subprocess.run(
             cmd, cwd=cwd, check=True,
-            stderr=subprocess.PIPE,
-            timeout=240,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
+        if result.stdout:
+            print(result.stdout.decode('utf-8', errors='ignore'))
         return True
-    except subprocess.TimeoutExpired:
-        print(f"TIMEOUT: {cmd[0]} exceeded 240 seconds", flush=True)
-        return False
     except subprocess.CalledProcessError as e:
-        print(f"Error running {cmd[0]}:", flush=True)
-        print(e.stderr.decode('utf-8', errors='ignore'), flush=True)
-        return False
+        stderr_msg = e.stderr.decode('utf-8', errors='ignore')
+        print(f"[ERROR] {os.path.basename(cmd[0])} exited {e.returncode}: {stderr_msg[:1000]}")
+        return can_fail
     except FileNotFoundError:
-        print(f"Could not find {cmd[0]}. Is Hugin installed at {HUGIN_BIN}?", flush=True)
+        print(f"[ERROR] Binary not found: {cmd[0]}. Check HUGIN_BIN={HUGIN_BIN}")
         return False
+
 
 def inject_angles_into_pto(pto_path: Path):
     """Set each image's yaw and pitch in the PTO from its el/az filename."""
@@ -41,12 +44,11 @@ def inject_angles_into_pto(pto_path: Path):
         if line.startswith('i ') and 'n"' in line:
             m = re.search(r'n"([^"]+)"', line)
             if m:
-                stem = Path(m.group(1)).stem  # e.g. "el50_az060" or "eln45_az030"
+                stem = Path(m.group(1)).stem
                 try:
                     el_part, az_part = stem.split('_az')
                     el = int(el_part.replace('el', '').replace('n', '-'))
                     az = int(az_part)
-                    # Replace standalone p (pitch=elevation) and y (yaw=azimuth) tokens
                     line = re.sub(r'(?<=\s)p-?\d+', f'p{el}', line)
                     line = re.sub(r'(?<=\s)y-?\d+', f'y{az}', line)
                 except Exception:
@@ -55,16 +57,37 @@ def inject_angles_into_pto(pto_path: Path):
     pto_path.write_text('\n'.join(out), encoding='utf-8')
 
 
-def stitch_images(session_id: str, images_dir: Path, output_path: Path, fov: float = 75.0):
+def count_control_points(pto_path: Path) -> int:
+    """Count control point lines (starting with 'c ') in a PTO file."""
+    try:
+        return sum(1 for line in pto_path.read_text(encoding='utf-8').splitlines() if line.startswith('c '))
+    except Exception:
+        return 0
+
+
+def stitch_images(
+    session_id: str,
+    images_dir: Path,
+    output_path: Path,
+    fov: float = 75.0,
+    set_stage: Optional[Callable[[str], None]] = None,
+):
     """
     Uses the Hugin command-line toolchain to stitch ultra-wide images.
     Returns (success_boolean, output_path_or_error_message).
+
+    set_stage: optional callback(stage_name) called at each pipeline step
+               so the caller can track progress externally (e.g. write to disk).
     """
+    def stage(name: str):
+        print(f"[STAGE] {name}")
+        if set_stage:
+            set_stage(name)
+
     imgs = sorted(images_dir.glob("*.jpg"))
     if len(imgs) < 2:
         return False, f"Not enough images to stitch. Found {len(imgs)}."
-        
-    # Full absolute paths for Hugin
+
     img_paths = [str(p.absolute()) for p in imgs]
     pto_file = "project.pto"
 
@@ -75,57 +98,74 @@ def stitch_images(session_id: str, images_dir: Path, output_path: Path, fov: flo
         if w < h:
             fov = math.degrees(2 * math.atan(math.tan(math.radians(fov / 2)) * w / h))
             print(f"Portrait images detected ({w}x{h}) — adjusted FOV to {fov:.1f}°")
-    
+
     print(f"--- Starting Hugin Stitching Pipeline for {session_id} ({len(imgs)} images) ---")
     start_time = time.time()
-    
-    # 1. Generate PTO project
-    cmd1 = [_bin("pto_gen"), "-o", pto_file, f"--fov={fov}"] + img_paths
-    if not run_hugin(cmd1, cwd=str(images_dir)): return False, "pto_gen failed"
 
-    # 1b. Inject known angles from filenames so cpfind has correct starting positions
+    # ── Step 1: Generate PTO ──────────────────────────────────────────
+    stage("loading")
+    cmd1 = [_bin("pto_gen"), "-o", pto_file, f"--fov={fov}"] + img_paths
+    if not run_hugin(cmd1, cwd=str(images_dir)):
+        return False, "pto_gen failed"
+
     inject_angles_into_pto(images_dir / pto_file)
 
-    # 2. Find control points at full resolution for sharper seams
-    cmd2 = [_bin("cpfind"), "--multirow", "-o", pto_file, pto_file]
-    if not run_hugin(cmd2, cwd=str(images_dir)): return False, "cpfind failed"
+    # ── Step 2: Feature matching ──────────────────────────────────────
+    stage("matching")
+    cmd2 = [_bin("cpfind"), "--fullscale", "--multirow", "-o", pto_file, pto_file]
+    if not run_hugin(cmd2, cwd=str(images_dir)):
+        return False, "cpfind failed — no features found. Ensure images have enough texture/detail."
 
-    # 3. Clean bad control points
-    cmd3 = [_bin("cpclean"), "-o", pto_file, pto_file]
-    if not run_hugin(cmd3, cwd=str(images_dir)): return False, "cpclean failed"
+    # ── Step 3: Clean control points (smart — never fatal) ────────────
+    stage("optimizing")
+    cp_before = count_control_points(images_dir / pto_file)
+    print(f"Control points found: {cp_before}")
+    if cp_before >= 20:
+        cmd3 = [_bin("cpclean"), "--max-distance=10", "-o", pto_file, pto_file]
+        run_hugin(cmd3, cwd=str(images_dir), can_fail=True)
+        cp_after = count_control_points(images_dir / pto_file)
+        print(f"Control points after cpclean: {cp_after}")
+        if cp_after < max(10, cp_before // 3):
+            print(f"[WARN] cpclean too aggressive ({cp_before} -> {cp_after}). Restoring with cpfind.")
+            inject_angles_into_pto(images_dir / pto_file)
+            run_hugin(cmd2, cwd=str(images_dir), can_fail=True)
+    else:
+        print(f"[WARN] Only {cp_before} control points — skipping cpclean.")
 
-    # 4. Find vertical/horizontal lines
+    # ── Step 4: Line detection (optional) ────────────────────────────
     cmd4 = [_bin("linefind"), "-o", pto_file, pto_file]
-    if not run_hugin(cmd4, cwd=str(images_dir)): return False, "linefind failed"
+    run_hugin(cmd4, cwd=str(images_dir), can_fail=True)
 
-    # 5. Optimize camera parameters
+    # ── Step 5: Optimize camera parameters ───────────────────────────
     cmd5 = [_bin("autooptimiser"), "-a", "-m", "-l", "-s", "-p", "-o", pto_file, pto_file]
-    if not run_hugin(cmd5, cwd=str(images_dir)): return False, "autooptimiser failed"
+    if not run_hugin(cmd5, cwd=str(images_dir), can_fail=False):
+        print("[WARN] Full autooptimiser failed — retrying without position flag (-p).")
+        cmd5b = [_bin("autooptimiser"), "-a", "-m", "-l", "-s", "-o", pto_file, pto_file]
+        if not run_hugin(cmd5b, cwd=str(images_dir)):
+            return False, "autooptimiser failed — not enough overlapping control points to solve geometry."
 
-    # 6. Calculate optimal canvas (no auto-crop — it can produce an empty mask)
-    cmd6 = [_bin("pano_modify"), "--canvas=4000x2000", "-o", pto_file, pto_file]
-    if not run_hugin(cmd6, cwd=str(images_dir)): return False, "pano_modify failed"
+    # ── Step 6: Canvas ───────────────────────────────────────────────
+    cmd6 = [_bin("pano_modify"), "--canvas=4000x2000", "--crop=0,4000,0,2000", "-o", pto_file, pto_file]
+    if not run_hugin(cmd6, cwd=str(images_dir)):
+        return False, "pano_modify failed"
 
-    # 7. Execute stitching using verdandi (Hugin's built-in blender — no external enblend needed)
-    cmd7 = [_bin("hugin_executor"), "--stitching", "--prefix=pano", "--blender=verdandi", pto_file]
-    if not run_hugin(cmd7, cwd=str(images_dir)): return False, "hugin_executor failed"
-    
+    # ── Step 7: Stitch ───────────────────────────────────────────────
+    stage("stitching")
+    cmd7 = [_bin("hugin_executor"), "--stitching", "--prefix=pano", pto_file]
+    if not run_hugin(cmd7, cwd=str(images_dir)):
+        return False, "hugin_executor failed"
+
+    # ── Step 8: Save JPEG ────────────────────────────────────────────
+    stage("saving")
     print(f"--- Hugin Pipeline completed in {time.time() - start_time:.1f} seconds ---")
-    
-    # Look for the final blended output — exact name first, then wildcard fallback
-    target_output = None
-    for candidate in [images_dir / "pano.tif", images_dir / "pano.jpg"]:
-        if candidate.exists():
-            target_output = candidate
-            break
-    if target_output is None:
-        # Fallback: pick the largest pano file (handles unusual prefix suffixes)
-        output_files = [p for p in images_dir.glob("pano*.tif") if not re.match(r'pano\d+\.tif$', p.name)]
-        output_files += list(images_dir.glob("pano*.jpg"))
-        if not output_files:
-            return False, "Failed to locate Hugin output file (pano.tif or pano.jpg)"
-        target_output = max(output_files, key=lambda p: p.stat().st_size)
-    
+
+    output_files = list(images_dir.glob("pano*.tif")) + list(images_dir.glob("pano*.jpg"))
+    if not output_files:
+        return False, "hugin_executor produced no output file (pano*.tif / pano*.jpg not found)"
+
+    target_output = max(output_files, key=lambda p: p.stat().st_size)
+    print(f"Output: {target_output} ({target_output.stat().st_size // 1024} KB)")
+
     try:
         from PIL import Image
         img = Image.open(str(target_output))
@@ -133,4 +173,4 @@ def stitch_images(session_id: str, images_dir: Path, output_path: Path, fov: flo
         img.save(str(output_path), "JPEG", quality=92)
         return True, str(output_path)
     except Exception as e:
-        return False, f"Failed to save final JPEG: {str(e)}"
+        return False, f"Failed to save final JPEG: {e}"

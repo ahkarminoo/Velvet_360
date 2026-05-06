@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 import uuid
 import socket
@@ -24,16 +25,39 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 _executor = ThreadPoolExecutor(max_workers=int(os.environ.get("STITCH_WORKERS", "2")))
-_session_stage: dict[str, str] = {}
-_session_errors: dict[str, str] = {}
 
+
+# ── File-based status (works across replicas & restarts) ─────────────
+def _status_path(session_id: str) -> Path:
+    return UPLOAD_DIR / session_id / "_status.json"
+
+
+def _write_status(session_id: str, stage: str, message: str = ""):
+    """Write status atomically to a JSON file in the session directory."""
+    p = _status_path(session_id)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_suffix(".tmp")
+    tmp.write_text(json.dumps({"stage": stage, "message": message}))
+    tmp.replace(p)  # atomic rename
+
+
+def _read_status(session_id: str) -> dict:
+    p = _status_path(session_id)
+    if not p.exists():
+        return {"stage": "unknown"}
+    try:
+        return json.loads(p.read_text())
+    except Exception:
+        return {"stage": "unknown"}
+
+
+# ── Routes ────────────────────────────────────────────────────────────
 
 @app.get("/")
 def root():
     return {"message": "360 stitch server running. Open /static/viewer.html"}
 
 
-# ── Per-shot upload ──────────────────────────────────────────────
 @app.post("/upload/{session_id}")
 async def upload_shot(session_id: str, file: UploadFile = File(...)):
     """Receive one image at a time — called immediately after each capture."""
@@ -47,25 +71,22 @@ async def upload_shot(session_id: str, file: UploadFile = File(...)):
     return {"saved": dest.name, "index": existing, "total": existing + 1}
 
 
-# ── Stitch by session ID (no file upload needed) ─────────────────
 @app.post("/stitch/{session_id}")
 async def stitch_session(session_id: str, fov: float = Query(default=75.0)):
     """Stitch all images already uploaded for this session."""
-    session_dir = (UPLOAD_DIR / session_id).resolve()
+    session_dir = UPLOAD_DIR / session_id
     if not session_dir.exists():
         raise HTTPException(404, "Session not found — no images uploaded yet")
 
     def spatial_key(p: Path):
-        # Sort by elevation asc (horizon first), then azimuth asc (left-to-right sweep)
-        # Filename format: el50_az060.jpg or el n45_az030.jpg (n = negative)
-        name = p.stem  # e.g. "el50_az060" or "eln45_az030"
+        name = p.stem
         try:
             el_part, az_part = name.split('_az')
-            el = int(el_part.replace('el','').replace('n','-'))
+            el = int(el_part.replace('el', '').replace('n', '-'))
             az = int(az_part)
-            return (abs(el), az)  # horizon (el=0) first, then by azimuth
+            return (abs(el), az)
         except Exception:
-            return (999, name)  # fallback: sort legacy filenames alphabetically
+            return (999, name)
 
     paths = [
         str(p) for p in sorted(
@@ -76,24 +97,30 @@ async def stitch_session(session_id: str, fov: float = Query(default=75.0)):
     if len(paths) < 2:
         raise HTTPException(400, f"Only {len(paths)} image(s) in session, need at least 2")
 
-    output_path = (OUTPUT_DIR / f"{session_id}.jpg").resolve()
-    _session_stage[session_id] = "starting"
+    output_path = OUTPUT_DIR / f"{session_id}.jpg"
+    _write_status(session_id, "starting")
 
     def _run():
         try:
-            success, res = stitch_images(session_id, session_dir, output_path, fov=fov)
-            _session_stage[session_id] = "done" if success else "error"
-            if not success:
-                _session_errors[session_id] = res
+            def set_stage(s: str):
+                _write_status(session_id, s)
+
+            success, res = stitch_images(
+                session_id, session_dir, output_path,
+                fov=fov, set_stage=set_stage,
+            )
+            if success:
+                _write_status(session_id, "done")
+            else:
+                _write_status(session_id, "error", res)
         except Exception as e:
-            _session_stage[session_id] = "error"
-            _session_errors[session_id] = str(e)
+            _write_status(session_id, "error", str(e))
 
     _executor.submit(_run)
     return {"status": "queued", "session": session_id}
 
 
-# ── Legacy bulk stitch (used by viewer.html) ─────────────────────
+# ── Legacy bulk stitch (used by viewer.html) ─────────────────────────
 @app.post("/stitch")
 async def stitch_bulk(
     files: list[UploadFile] = File(...),
@@ -113,34 +140,34 @@ async def stitch_bulk(
         dest.write_bytes(await f.read())
         paths.append(str(dest))
 
-    output_path = str(OUTPUT_DIR / f"{sid}.jpg")
-    _session_stage[sid] = "starting"
+    output_path = OUTPUT_DIR / f"{sid}.jpg"
+    _write_status(sid, "starting")
 
     def _run():
-        success, res = stitch_images(sid, session_dir, Path(output_path))
+        success, res = stitch_images(sid, session_dir, output_path)
         if not success:
             raise Exception(res)
-        return {}
 
     loop = asyncio.get_event_loop()
     try:
-        stats = await loop.run_in_executor(_executor, _run)
-        _session_stage[sid] = "done"
+        await loop.run_in_executor(_executor, _run)
+        _write_status(sid, "done")
     except Exception as e:
-        _session_stage[sid] = "error"
+        _write_status(sid, "error", str(e))
         return JSONResponse({"status": "error", "message": str(e)}, status_code=422)
 
-    return {"status": "ok", "url": f"/result/{sid}.jpg", "session": sid, **stats}
+    return {"status": "ok", "url": f"/result/{sid}.jpg", "session": sid}
 
 
 @app.get("/status/{session_id}")
 def session_status(session_id: str):
-    stage = _session_stage.get(session_id, "unknown")
+    data = _read_status(session_id)
+    stage = data.get("stage", "unknown")
     resp = {"stage": stage}
     if stage == "done":
         resp["url"] = f"/result/{session_id}.jpg"
     if stage == "error":
-        resp["message"] = _session_errors.get(session_id, "unknown error")
+        resp["message"] = data.get("message", "unknown error")
     return resp
 
 
@@ -149,11 +176,11 @@ def debug_session(session_id: str):
     session_dir = UPLOAD_DIR / session_id
     if not session_dir.exists():
         return {"error": "session not found"}
-    files = sorted(session_dir.iterdir())
+    files = sorted(f for f in session_dir.iterdir() if not f.name.startswith("_"))
     return {
         "session_id": session_id,
         "image_count": len(files),
-        "stage": _session_stage.get(session_id, "unknown"),
+        "status": _read_status(session_id),
         "images": [{"name": f.name, "size_kb": round(f.stat().st_size / 1024)} for f in files],
     }
 
