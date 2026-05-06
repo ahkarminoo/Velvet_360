@@ -176,7 +176,7 @@ def stitch_images(
         _bin("enblend"),
         "--compression=LZW",
         "-o", "pano_final.tif",
-    ] + [str(p) for p in remapped]
+    ] + [p.name for p in remapped]
     if not run_hugin(cmd_enblend, cwd=str(images_dir), timeout=600):
         return False, "enblend failed — see logs for details"
 
