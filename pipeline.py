@@ -81,7 +81,7 @@ def stitch_images(session_id: str, images_dir: Path, output_path: Path, fov: flo
     inject_angles_into_pto(images_dir / pto_file)
 
     # 2. Find control points at full resolution for sharper seams
-    cmd2 = [_bin("cpfind"), "--multirow", "--fullscale", "-o", pto_file, pto_file]
+    cmd2 = [_bin("cpfind"), "--multirow", "-o", pto_file, pto_file]
     if not run_hugin(cmd2, cwd=str(images_dir)): return False, "cpfind failed"
 
     # 3. Clean bad control points
