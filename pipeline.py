@@ -100,8 +100,8 @@ def stitch_images(session_id: str, images_dir: Path, output_path: Path, fov: flo
     cmd6 = [_bin("pano_modify"), "--canvas=4000x2000", "-o", pto_file, pto_file]
     if not run_hugin(cmd6, cwd=str(images_dir)): return False, "pano_modify failed"
 
-    # 7. Execute stitching (nona + enblend with -l 1 for single pyramid level — much faster)
-    cmd7 = [_bin("hugin_executor"), "--stitching", "--prefix=pano", "--blender-args=-l 1", pto_file]
+    # 7. Execute stitching using verdandi (Hugin's built-in blender — no external enblend needed)
+    cmd7 = [_bin("hugin_executor"), "--stitching", "--prefix=pano", "--blender=verdandi", pto_file]
     if not run_hugin(cmd7, cwd=str(images_dir)): return False, "hugin_executor failed"
     
     print(f"--- Hugin Pipeline completed in {time.time() - start_time:.1f} seconds ---")

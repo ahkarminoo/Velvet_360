@@ -51,7 +51,7 @@ async def upload_shot(session_id: str, file: UploadFile = File(...)):
 @app.post("/stitch/{session_id}")
 async def stitch_session(session_id: str, fov: float = Query(default=75.0)):
     """Stitch all images already uploaded for this session."""
-    session_dir = UPLOAD_DIR / session_id
+    session_dir = (UPLOAD_DIR / session_id).resolve()
     if not session_dir.exists():
         raise HTTPException(404, "Session not found — no images uploaded yet")
 
@@ -76,12 +76,12 @@ async def stitch_session(session_id: str, fov: float = Query(default=75.0)):
     if len(paths) < 2:
         raise HTTPException(400, f"Only {len(paths)} image(s) in session, need at least 2")
 
-    output_path = str(OUTPUT_DIR / f"{session_id}.jpg")
+    output_path = (OUTPUT_DIR / f"{session_id}.jpg").resolve()
     _session_stage[session_id] = "starting"
 
     def _run():
         try:
-            success, res = stitch_images(session_id, session_dir, Path(output_path), fov=fov)
+            success, res = stitch_images(session_id, session_dir, output_path, fov=fov)
             _session_stage[session_id] = "done" if success else "error"
             if not success:
                 _session_errors[session_id] = res
