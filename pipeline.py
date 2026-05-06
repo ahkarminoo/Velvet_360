@@ -14,17 +14,23 @@ def _bin(name):
     return os.path.join(HUGIN_BIN, f"{name}{suffix}")
 
 def run_hugin(cmd, cwd):
-    print(f"Running: {' '.join(cmd)}")
+    print(f"Running: {' '.join(cmd)}", flush=True)
     try:
-        # Run with check=True to raise exception on failure
-        result = subprocess.run(cmd, cwd=cwd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        subprocess.run(
+            cmd, cwd=cwd, check=True,
+            stderr=subprocess.PIPE,
+            timeout=240,
+        )
         return True
+    except subprocess.TimeoutExpired:
+        print(f"TIMEOUT: {cmd[0]} exceeded 240 seconds", flush=True)
+        return False
     except subprocess.CalledProcessError as e:
-        print(f"Error running {cmd[0]}:")
-        print(e.stderr.decode('utf-8', errors='ignore'))
+        print(f"Error running {cmd[0]}:", flush=True)
+        print(e.stderr.decode('utf-8', errors='ignore'), flush=True)
         return False
     except FileNotFoundError:
-        print(f"Could not find {cmd[0]}. Make sure Hugin is installed at {HUGIN_BIN}.")
+        print(f"Could not find {cmd[0]}. Is Hugin installed at {HUGIN_BIN}?", flush=True)
         return False
 
 def inject_angles_into_pto(pto_path: Path):
@@ -106,14 +112,19 @@ def stitch_images(session_id: str, images_dir: Path, output_path: Path, fov: flo
     
     print(f"--- Hugin Pipeline completed in {time.time() - start_time:.1f} seconds ---")
     
-    # Locate output file. hugin_executor typically generates prefix.tif or prefix.jpg
-    # It might append _equirectangular or similar. Let's find it.
-    output_files = list(images_dir.glob("pano*.tif")) + list(images_dir.glob("pano*.jpg"))
-    if not output_files:
-        return False, "Failed to locate Hugin output file (pano*.tif or pano*.jpg)"
-        
-    # Take the largest file if multiple exist (to avoid taking a small preview)
-    target_output = max(output_files, key=lambda p: p.stat().st_size)
+    # Look for the final blended output — exact name first, then wildcard fallback
+    target_output = None
+    for candidate in [images_dir / "pano.tif", images_dir / "pano.jpg"]:
+        if candidate.exists():
+            target_output = candidate
+            break
+    if target_output is None:
+        # Fallback: pick the largest pano file (handles unusual prefix suffixes)
+        output_files = [p for p in images_dir.glob("pano*.tif") if not re.match(r'pano\d+\.tif$', p.name)]
+        output_files += list(images_dir.glob("pano*.jpg"))
+        if not output_files:
+            return False, "Failed to locate Hugin output file (pano.tif or pano.jpg)"
+        target_output = max(output_files, key=lambda p: p.stat().st_size)
     
     try:
         from PIL import Image
