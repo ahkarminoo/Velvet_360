@@ -97,7 +97,7 @@ def stitch_images(session_id: str, images_dir: Path, output_path: Path, fov: flo
     if not run_hugin(cmd5, cwd=str(images_dir)): return False, "autooptimiser failed"
 
     # 6. Calculate optimal canvas (no auto-crop — it can produce an empty mask)
-    cmd6 = [_bin("pano_modify"), "--canvas=AUTO", "-o", pto_file, pto_file]
+    cmd6 = [_bin("pano_modify"), "--canvas=6000x3000", "-o", pto_file, pto_file]
     if not run_hugin(cmd6, cwd=str(images_dir)): return False, "pano_modify failed"
 
     # 7. Execute stitching (nona + enblend)
