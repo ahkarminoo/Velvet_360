@@ -116,12 +116,10 @@ def stitch_images(session_id: str, images_dir: Path, output_path: Path, fov: flo
     target_output = max(output_files, key=lambda p: p.stat().st_size)
     
     try:
-        # Convert TIF to JPG for the web viewer if needed, and move to final output path
-        img = cv2.imread(str(target_output))
-        if img is None:
-            return False, f"OpenCV failed to read Hugin output: {target_output}"
-            
-        cv2.imwrite(str(output_path), img, [int(cv2.IMWRITE_JPEG_QUALITY), 92])
+        from PIL import Image
+        img = Image.open(str(target_output))
+        img = img.convert("RGB")
+        img.save(str(output_path), "JPEG", quality=92)
         return True, str(output_path)
     except Exception as e:
         return False, f"Failed to save final JPEG: {str(e)}"
