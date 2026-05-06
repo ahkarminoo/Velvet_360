@@ -175,7 +175,6 @@ def stitch_images(
     print(f"[INFO] Blending {len(remapped)} tiles with enblend...")
     cmd_enblend = [
         _bin("enblend"),
-        "--levels=3",
         "--compression=LZW",
         "-o", "pano_final.tif",
     ] + [p.name for p in remapped]
