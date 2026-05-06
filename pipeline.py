@@ -16,20 +16,29 @@ def _bin(name):
     return os.path.join(HUGIN_BIN, f"{name}{suffix}")
 
 
-def run_hugin(cmd, cwd, can_fail=False):
+def run_hugin(cmd, cwd, can_fail=False, timeout=600):
     """Run a Hugin command. Returns True on success. If can_fail=True, returns False instead of crashing."""
     print(f"Running: {' '.join(cmd)}")
     try:
         result = subprocess.run(
             cmd, cwd=cwd, check=True,
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            timeout=timeout
         )
         if result.stdout:
             print(result.stdout.decode('utf-8', errors='ignore'))
         return True
+    except subprocess.TimeoutExpired:
+        print(f"[ERROR] {os.path.basename(cmd[0])} timed out after {timeout}s")
+        return can_fail
     except subprocess.CalledProcessError as e:
         stderr_msg = e.stderr.decode('utf-8', errors='ignore')
-        print(f"[ERROR] {os.path.basename(cmd[0])} exited {e.returncode}: {stderr_msg[:1000]}")
+        stdout_msg = e.stdout.decode('utf-8', errors='ignore') if e.stdout else ''
+        print(f"[ERROR] {os.path.basename(cmd[0])} exited {e.returncode}")
+        if stderr_msg:
+            print(f"  stderr: {stderr_msg[:2000]}")
+        if stdout_msg:
+            print(f"  stdout: {stdout_msg[:500]}")
         return can_fail
     except FileNotFoundError:
         print(f"[ERROR] Binary not found: {cmd[0]}. Check HUGIN_BIN={HUGIN_BIN}")
@@ -145,23 +154,40 @@ def stitch_images(
             return False, "autooptimiser failed — not enough overlapping control points to solve geometry."
 
     # ── Step 6: Canvas ───────────────────────────────────────────────
-    cmd6 = [_bin("pano_modify"), "--canvas=4000x2000", "--crop=0,4000,0,2000", "-o", pto_file, pto_file]
+    canvas = os.environ.get("STITCH_CANVAS", "3000x1500")
+    cmd6 = [_bin("pano_modify"), f"--canvas={canvas}", "-o", pto_file, pto_file]
     if not run_hugin(cmd6, cwd=str(images_dir)):
         return False, "pano_modify failed"
 
-    # ── Step 7: Stitch ───────────────────────────────────────────────
+    # ── Step 7a: Remap images with nona ──────────────────────────────
     stage("stitching")
-    cmd7 = [_bin("hugin_executor"), "--stitching", "--prefix=pano", pto_file]
-    if not run_hugin(cmd7, cwd=str(images_dir)):
-        return False, "hugin_executor failed"
+    print(f"[INFO] Canvas: {canvas} — remapping images with nona...")
+    cmd_nona = [_bin("nona"), "-m", "TIFF_m", "-o", "pano", pto_file]
+    if not run_hugin(cmd_nona, cwd=str(images_dir), timeout=300):
+        return False, "nona failed — could not remap images"
 
-    # ── Step 8: Save JPEG ────────────────────────────────────────────
+    # ── Step 7b: Blend with enblend ──────────────────────────────────
     stage("saving")
+    remapped = sorted(images_dir.glob("pano????.tif"))
+    if not remapped:
+        return False, "nona produced no remapped tiles (pano????.tif not found)"
+    print(f"[INFO] Blending {len(remapped)} tiles with enblend...")
+    cmd_enblend = [
+        _bin("enblend"),
+        "--compression=LZW",
+        "-o", "pano_final.tif",
+    ] + [str(p) for p in remapped]
+    if not run_hugin(cmd_enblend, cwd=str(images_dir), timeout=300):
+        return False, "enblend failed — check available memory"
+
     print(f"--- Hugin Pipeline completed in {time.time() - start_time:.1f} seconds ---")
 
-    output_files = list(images_dir.glob("pano*.tif")) + list(images_dir.glob("pano*.jpg"))
+    output_files = list(images_dir.glob("pano_final.tif"))
     if not output_files:
-        return False, "hugin_executor produced no output file (pano*.tif / pano*.jpg not found)"
+        # fallback: grab any large pano tif
+        output_files = sorted(images_dir.glob("pano*.tif"), key=lambda p: p.stat().st_size, reverse=True)
+    if not output_files:
+        return False, "No output TIFF found after stitching"
 
     target_output = max(output_files, key=lambda p: p.stat().st_size)
     print(f"Output: {target_output} ({target_output.stat().st_size // 1024} KB)")
