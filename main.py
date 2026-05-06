@@ -25,6 +25,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 _executor = ThreadPoolExecutor(max_workers=int(os.environ.get("STITCH_WORKERS", "2")))
 _session_stage: dict[str, str] = {}
+_session_errors: dict[str, str] = {}
 
 
 @app.get("/")
@@ -79,20 +80,17 @@ async def stitch_session(session_id: str, fov: float = Query(default=75.0)):
     _session_stage[session_id] = "starting"
 
     def _run():
-        success, res = stitch_images(session_id, session_dir, Path(output_path), fov=fov)
-        if not success:
-            raise Exception(res)
-        return {}
+        try:
+            success, res = stitch_images(session_id, session_dir, Path(output_path), fov=fov)
+            _session_stage[session_id] = "done" if success else "error"
+            if not success:
+                _session_errors[session_id] = res
+        except Exception as e:
+            _session_stage[session_id] = "error"
+            _session_errors[session_id] = str(e)
 
-    loop = asyncio.get_event_loop()
-    try:
-        stats = await loop.run_in_executor(_executor, _run)
-        _session_stage[session_id] = "done"
-    except Exception as e:
-        _session_stage[session_id] = "error"
-        return JSONResponse({"status": "error", "message": str(e)}, status_code=422)
-
-    return {"status": "ok", "url": f"/result/{session_id}.jpg", "session": session_id, **stats}
+    _executor.submit(_run)
+    return {"status": "queued", "session": session_id}
 
 
 # ── Legacy bulk stitch (used by viewer.html) ─────────────────────
@@ -137,7 +135,13 @@ async def stitch_bulk(
 
 @app.get("/status/{session_id}")
 def session_status(session_id: str):
-    return {"stage": _session_stage.get(session_id, "unknown")}
+    stage = _session_stage.get(session_id, "unknown")
+    resp = {"stage": stage}
+    if stage == "done":
+        resp["url"] = f"/result/{session_id}.jpg"
+    if stage == "error":
+        resp["message"] = _session_errors.get(session_id, "unknown error")
+    return resp
 
 
 @app.get("/debug/{session_id}")

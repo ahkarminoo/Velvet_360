@@ -684,47 +684,50 @@ stitchBtn.addEventListener('click', async () => {
   loadingEl.style.display = 'flex';
   stitchBtn.disabled = true;
 
-  pollInterval = setInterval(async () => {
-    try {
-      const r = await fetch(`${SERVER_URL}/status/${currentSession}`);
-      const d = await r.json();
-      const msg = STAGE_MSGS[d.stage];
-      if (msg) $('loading-stage').textContent = msg;
-    } catch {}
-  }, 1000);
-
+  // Fire stitch and return immediately — don't await the full job
   try {
     $('loading-stage').textContent = 'Starting Hugin stitcher…';
-    const res  = await fetch(`${SERVER_URL}/stitch/${currentSession}?fov=${detectedFov}`, { method: 'POST' });
-    const data = await res.json();
-    
-    clearInterval(pollInterval); pollInterval = null;
-
-    if (data.status !== 'ok') throw new Error(data.message || 'Hugin stitching failed');
-
-    currentPanoUrl = SERVER_URL + data.url;
-    loadingEl.style.display = 'none';
-
-    videoEl.style.display = 'none';
-    guideCanvas.style.display = 'none';
-    reticleEl.style.display = 'none';
-    bottomBar.style.display = 'none';
-    shotDotsEl.style.display = 'none';
-    statusEl.style.display = 'none';
-    resultScreen.style.display = 'flex';
-    headingStrip.style.display = 'flex';
-
-    $('save-btn').href = currentPanoUrl;
-
-    initResultThreeJS(currentPanoUrl);
-
+    await fetch(`${SERVER_URL}/stitch/${currentSession}?fov=${detectedFov}`, { method: 'POST' });
   } catch (err) {
     clearInterval(pollInterval); pollInterval = null;
     loadingEl.style.display = 'none';
     stitchBtn.disabled = false;
     alert('Error: ' + err.message);
     animate3();
+    return;
   }
+
+  // Poll status until done or error
+  pollInterval = setInterval(async () => {
+    try {
+      const r = await fetch(`${SERVER_URL}/status/${currentSession}`);
+      const d = await r.json();
+      const msg = STAGE_MSGS[d.stage];
+      if (msg) $('loading-stage').textContent = msg;
+
+      if (d.stage === 'done') {
+        clearInterval(pollInterval); pollInterval = null;
+        currentPanoUrl = SERVER_URL + d.url;
+        loadingEl.style.display = 'none';
+        videoEl.style.display = 'none';
+        guideCanvas.style.display = 'none';
+        reticleEl.style.display = 'none';
+        bottomBar.style.display = 'none';
+        shotDotsEl.style.display = 'none';
+        statusEl.style.display = 'none';
+        resultScreen.style.display = 'flex';
+        headingStrip.style.display = 'flex';
+        $('save-btn').href = currentPanoUrl;
+        initResultThreeJS(currentPanoUrl);
+      } else if (d.stage === 'error') {
+        clearInterval(pollInterval); pollInterval = null;
+        loadingEl.style.display = 'none';
+        stitchBtn.disabled = false;
+        alert('Stitch failed: ' + (d.message || 'unknown error'));
+        animate3();
+      }
+    } catch {}
+  }, 2000);
 });
 
 // ── Three.js Result Viewer ────────────────────────────────────────
