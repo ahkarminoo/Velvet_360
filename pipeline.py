@@ -154,7 +154,7 @@ def stitch_images(
             return False, "autooptimiser failed — not enough overlapping control points to solve geometry."
 
     # ── Step 6: Canvas ───────────────────────────────────────────────
-    canvas = os.environ.get("STITCH_CANVAS", "3000x1500")
+    canvas = os.environ.get("STITCH_CANVAS", "4000x2000")
     cmd6 = [_bin("pano_modify"), f"--canvas={canvas}", "-o", pto_file, pto_file]
     if not run_hugin(cmd6, cwd=str(images_dir)):
         return False, "pano_modify failed"
@@ -163,7 +163,7 @@ def stitch_images(
     stage("stitching")
     print(f"[INFO] Canvas: {canvas} — remapping images with nona...")
     cmd_nona = [_bin("nona"), "-m", "TIFF_m", "-o", "pano", pto_file]
-    if not run_hugin(cmd_nona, cwd=str(images_dir), timeout=300):
+    if not run_hugin(cmd_nona, cwd=str(images_dir), timeout=600):
         return False, "nona failed — could not remap images"
 
     # ── Step 7b: Blend with enblend ──────────────────────────────────
@@ -177,8 +177,8 @@ def stitch_images(
         "--compression=LZW",
         "-o", "pano_final.tif",
     ] + [str(p) for p in remapped]
-    if not run_hugin(cmd_enblend, cwd=str(images_dir), timeout=300):
-        return False, "enblend failed — check available memory"
+    if not run_hugin(cmd_enblend, cwd=str(images_dir), timeout=600):
+        return False, "enblend failed — see logs for details"
 
     print(f"--- Hugin Pipeline completed in {time.time() - start_time:.1f} seconds ---")
 
