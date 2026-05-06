@@ -176,7 +176,6 @@ def stitch_images(
     cmd_enblend = [
         _bin("enblend"),
         "--compression=LZW",
-        "--quiet",
         "-o", "pano_final.tif",
     ] + [p.name for p in remapped]
     if not run_hugin(cmd_enblend, cwd=str(images_dir), timeout=600, discard_stdout=True):
