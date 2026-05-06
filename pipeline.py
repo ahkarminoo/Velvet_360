@@ -155,7 +155,7 @@ def stitch_images(
             return False, "autooptimiser failed — not enough overlapping control points to solve geometry."
 
     # ── Step 6: Canvas ───────────────────────────────────────────────
-    canvas = os.environ.get("STITCH_CANVAS", "2000x1000")
+    canvas = os.environ.get("STITCH_CANVAS", "4000x2000")
     cmd6 = [_bin("pano_modify"), f"--canvas={canvas}", "-o", pto_file, pto_file]
     if not run_hugin(cmd6, cwd=str(images_dir)):
         return False, "pano_modify failed"
