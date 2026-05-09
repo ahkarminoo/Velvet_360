@@ -125,7 +125,18 @@
       </div>
 
       <div>
-        <div class="label">3. Stitch with Hugin</div>
+        <div class="label">3. Camera FOV</div>
+        <select id="fov-select" style="width:100%;padding:10px;background:#161520;border:1px solid #1E1D2A;border-radius:10px;color:#F5F0E8;font-size:13px;">
+          <option value="75">Standard phone (75°)</option>
+          <option value="110">Ultra-wide phone (110°)</option>
+          <option value="65">Telephoto (65°)</option>
+          <option value="90">Wide DSLR (90°)</option>
+        </select>
+        <p style="font-size:11px;color:#9B96A8;margin-top:6px;line-height:1.4;">Pick the lens used to capture the photos. Wrong FOV → poor stitching.</p>
+      </div>
+
+      <div>
+        <div class="label">4. Stitch with Hugin</div>
         <button id="stitch-btn" disabled>Generate Panorama</button>
       </div>
 
@@ -239,9 +250,10 @@
 
     const form = new FormData();
     files.forEach(entry => form.append('files', entry.file, entry.file.name));
+    const fov = document.getElementById('fov-select').value;
 
     try {
-      const res = await fetch(`${SERVER}/stitch?session_id=${sid}`, { method: 'POST', body: form });
+      const res = await fetch(`${SERVER}/stitch?session_id=${sid}&fov=${fov}`, { method: 'POST', body: form });
       const data = await res.json();
       stopPoll();
 

@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import re
 import uuid
 import socket
 from concurrent.futures import ThreadPoolExecutor
@@ -14,6 +15,14 @@ from fastapi.staticfiles import StaticFiles
 import uvicorn
 
 from pipeline import stitch_images
+
+_SAFE_ID = re.compile(r'^[A-Za-z0-9_-]{1,64}$')
+
+
+def _check_session_id(sid: str) -> str:
+    if not _SAFE_ID.match(sid):
+        raise HTTPException(400, "Invalid session id")
+    return sid
 
 UPLOAD_DIR = Path("uploads")
 OUTPUT_DIR = Path("outputs")
@@ -61,6 +70,7 @@ def root():
 @app.post("/upload/{session_id}")
 async def upload_shot(session_id: str, file: UploadFile = File(...)):
     """Receive one image at a time — called immediately after each capture."""
+    _check_session_id(session_id)
     session_dir = UPLOAD_DIR / session_id
     session_dir.mkdir(parents=True, exist_ok=True)
     existing = len([f for f in session_dir.iterdir() if f.suffix in ('.jpg', '.jpeg', '.png')])
@@ -74,6 +84,7 @@ async def upload_shot(session_id: str, file: UploadFile = File(...)):
 @app.post("/stitch/{session_id}")
 async def stitch_session(session_id: str, fov: float = Query(default=75.0)):
     """Stitch all images already uploaded for this session."""
+    _check_session_id(session_id)
     session_dir = UPLOAD_DIR / session_id
     if not session_dir.exists():
         raise HTTPException(404, "Session not found — no images uploaded yet")
@@ -120,23 +131,25 @@ async def stitch_session(session_id: str, fov: float = Query(default=75.0)):
     return {"status": "queued", "session": session_id}
 
 
-# ── Legacy bulk stitch (used by viewer.html) ─────────────────────────
+# ── Bulk stitch (used by viewer.html desktop flow) ───────────────────
 @app.post("/stitch")
 async def stitch_bulk(
     files: list[UploadFile] = File(...),
     session_id: Optional[str] = Query(default=None),
+    fov: float = Query(default=75.0),
 ):
     if len(files) < 2:
         raise HTTPException(400, "Send at least 2 images")
 
     sid = session_id or uuid.uuid4().hex[:10]
+    _check_session_id(sid)
     session_dir = UPLOAD_DIR / sid
     session_dir.mkdir(parents=True, exist_ok=True)
 
     paths = []
     for i, f in enumerate(files):
-        ext = Path(f.filename or "img.jpg").suffix or ".jpg"
-        dest = session_dir / f"{i:03d}{ext}"
+        filename = Path(f.filename).name if f.filename else f"{i:03d}.jpg"
+        dest = session_dir / filename
         dest.write_bytes(await f.read())
         paths.append(str(dest))
 
@@ -144,11 +157,13 @@ async def stitch_bulk(
     _write_status(sid, "starting")
 
     def _run():
-        success, res = stitch_images(sid, session_dir, output_path)
+        def set_stage(s: str):
+            _write_status(sid, s)
+        success, res = stitch_images(sid, session_dir, output_path, fov=fov, set_stage=set_stage)
         if not success:
             raise Exception(res)
 
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     try:
         await loop.run_in_executor(_executor, _run)
         _write_status(sid, "done")
@@ -161,6 +176,7 @@ async def stitch_bulk(
 
 @app.get("/status/{session_id}")
 def session_status(session_id: str):
+    _check_session_id(session_id)
     data = _read_status(session_id)
     stage = data.get("stage", "unknown")
     resp = {"stage": stage}
@@ -173,6 +189,7 @@ def session_status(session_id: str):
 
 @app.get("/debug/{session_id}")
 def debug_session(session_id: str):
+    _check_session_id(session_id)
     session_dir = UPLOAD_DIR / session_id
     if not session_dir.exists():
         return {"error": "session not found"}
@@ -187,7 +204,10 @@ def debug_session(session_id: str):
 
 @app.get("/result/{filename}")
 def get_result(filename: str):
-    path = OUTPUT_DIR / filename
+    safe = Path(filename).name
+    path = (OUTPUT_DIR / safe).resolve()
+    if not str(path).startswith(str(OUTPUT_DIR.resolve())):
+        raise HTTPException(400, "Invalid filename")
     if not path.exists():
         raise HTTPException(404, "Result not found")
     return FileResponse(str(path), media_type="image/jpeg")
