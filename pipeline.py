@@ -265,7 +265,9 @@ def _stitch_inner(session_id, images_dir, output_path, fov, set_stage):
         return False, "nona produced no remapped tiles (pano????.tif not found)"
     cmd_enblend = [
         _bin("enblend"),
-        "-v",  # verbose so streaming logs show progress
+        "-v",
+        "--primary-seam-generator=nft",  # Nearest-Feature-Transform: orders of magnitude faster than annealing
+        "--fine-mask",                   # skip annealing seam optimization (~3 min per pair on hobby vCPU)
         "--compression=LZW",
         "-o", "pano_final.tif",
     ] + [p.name for p in remapped]
