@@ -4,6 +4,7 @@ import re
 import math
 import cv2
 import time
+import threading
 import platform
 from pathlib import Path
 from typing import Callable, Optional
@@ -43,6 +44,46 @@ def run_hugin(cmd, cwd, can_fail=False, timeout=600, discard_stdout=False):
     except FileNotFoundError:
         print(f"[FAIL] {tool} not found — check HUGIN_BIN={HUGIN_BIN}")
         return False
+
+
+def run_hugin_streaming(cmd, cwd, timeout=600):
+    """Like run_hugin but streams stdout/stderr line-by-line so progress is visible during long runs."""
+    tool = os.path.basename(cmd[0])
+    try:
+        proc = subprocess.Popen(
+            cmd, cwd=cwd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            bufsize=1,
+            universal_newlines=True,
+        )
+    except FileNotFoundError:
+        print(f"[FAIL] {tool} not found — check HUGIN_BIN={HUGIN_BIN}")
+        return False
+
+    def _reader():
+        for line in proc.stdout:
+            line = line.rstrip()
+            if line:
+                print(f"  {tool}: {line[:200]}", flush=True)
+
+    t = threading.Thread(target=_reader, daemon=True)
+    t.start()
+    try:
+        proc.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        try:
+            proc.wait(timeout=5)
+        except Exception:
+            pass
+        print(f"[FAIL] {tool} timed out after {timeout}s")
+        return False
+    t.join(timeout=2)
+    if proc.returncode != 0:
+        print(f"[FAIL] {tool} exited {proc.returncode}")
+        return False
+    return True
 
 
 def inject_angles_into_pto(pto_path: Path):
@@ -212,7 +253,7 @@ def _stitch_inner(session_id, images_dir, output_path, fov, set_stage):
     stage("stitching")
     print(f"[{t()}] canvas={canvas} — remapping with nona...")
     cmd_nona = [_bin("nona"), "-m", "TIFF_m", "-o", "pano", pto_file]
-    if not run_hugin(cmd_nona, cwd=str(images_dir), timeout=600, discard_stdout=True):
+    if not run_hugin_streaming(cmd_nona, cwd=str(images_dir), timeout=600):
         return False, "nona failed — could not remap images"
     remapped = sorted(images_dir.glob("pano????.tif"))
     tile_mb = sum(p.stat().st_size for p in remapped) // (1024 * 1024)
@@ -224,10 +265,11 @@ def _stitch_inner(session_id, images_dir, output_path, fov, set_stage):
         return False, "nona produced no remapped tiles (pano????.tif not found)"
     cmd_enblend = [
         _bin("enblend"),
+        "-v",  # verbose so streaming logs show progress
         "--compression=LZW",
         "-o", "pano_final.tif",
     ] + [p.name for p in remapped]
-    if not run_hugin(cmd_enblend, cwd=str(images_dir), timeout=600, discard_stdout=True):
+    if not run_hugin_streaming(cmd_enblend, cwd=str(images_dir), timeout=600):
         return False, "enblend failed — see logs for details"
 
     output_files = list(images_dir.glob("pano_final.tif"))
