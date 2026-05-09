@@ -266,8 +266,9 @@ def _stitch_inner(session_id, images_dir, output_path, fov, set_stage):
     cmd_enblend = [
         _bin("enblend"),
         "-v",
-        "--primary-seam-generator=nft",  # Nearest-Feature-Transform: orders of magnitude faster than annealing
-        "--fine-mask",                   # skip annealing seam optimization (~3 min per pair on hobby vCPU)
+        "--primary-seam-generator=nft",
+        "--fine-mask",
+        "--anneal=0.99:2:1:3",  # minimum-cost annealing (fast cooling, 3 iterations) — Railway's enblend ignores fine-mask auto-disable
         "--compression=LZW",
         "-o", "pano_final.tif",
     ] + [p.name for p in remapped]
