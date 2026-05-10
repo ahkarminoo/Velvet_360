@@ -299,7 +299,12 @@ $('start-btn').addEventListener('click', () => initCapture(true));
 $('skip-btn').addEventListener('click',  () => initCapture(false));
 
 async function initCapture(withGyro) {
-  currentSession = Math.random().toString(36).slice(2, 12);
+  // Allow desktop to drive the session ID via ?session=<id>; fall back to random
+  const urlParams = new URLSearchParams(location.search);
+  const externalSession = urlParams.get('session');
+  currentSession = externalSession && /^[A-Za-z0-9_-]{1,64}$/.test(externalSession)
+    ? externalSession
+    : Math.random().toString(36).slice(2, 12);
 
   try {
     // Try full HD first, fall back to basic if constraints cause issues
